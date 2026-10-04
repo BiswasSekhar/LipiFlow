@@ -68,6 +68,16 @@ from a filename prefix. A new map requires exact font identity, mapping
 provenance/licence, independent encoded fixtures and matching-font visual review.
 Font distribution additionally requires redistribution permission.
 
+The imported local archive also has a small, explicit preview registry for its
+`FML Fonts`, `ML Fonts`, `Apple Card Fonts` and `Scribe Fonts` collections.
+Representative supplied files from each collection were visually checked against
+the same Karthika-encoded editor phrase, conjuncts/pre-base vowels, chillus and
+explicit virama. The web preview resolves these named archive collections to
+`karthika/1.0.0`; an explicitly unknown map version or any other collection
+remains unavailable rather than falling back to Unicode Malayalam. This registry
+affects catalogue previews only; it does not claim every file has been individually
+reviewed as an upload/export target.
+
 The encoding result also contains editing `spans`: `unicode_start`, `unicode_end`,
 `encoded_start` and `encoded_end`, all UTF-16 offsets. Unicode offsets refer to the
 original input before canonical normalization. Spans cover whole converted clusters

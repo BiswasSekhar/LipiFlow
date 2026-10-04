@@ -23,7 +23,7 @@ test('Google word suggestions, protected text, UTF-8 export and provider persist
   expect(requests).toContain('ente');
   expect(requests).toContain('peru');
   await expect(page.getByText('Google', { exact: true })).toBeVisible();
-  await page.getByText('Choose another spelling · Google suggestions').click();
+  await expect(page.getByRole('region', { name: 'Google spelling suggestions' })).toBeVisible();
   await page.getByLabel('Spelling for ente').selectOption('എൻ്റെ');
   await expect(output).toHaveValue('എൻ്റെ പേര്!\nLipiFlow 😀 123');
   await page.getByRole('button', { name: 'FML', exact: true }).click();
@@ -41,6 +41,22 @@ test('Google word suggestions, protected text, UTF-8 export and provider persist
   await page.reload();
   await expect(page.getByText('Google', { exact: true })).toBeVisible();
   await expect(source).toHaveValue('');
+});
+
+test('shows a keep-as-typed choice even when Google returns one suggestion', async ({ page }) => {
+  await page.route('https://inputtools.google.com/request?**', async (route) => {
+    const word = new URL(route.request().url()).searchParams.get('text')!;
+    await route.fulfill({ json: ['SUCCESS', [[word, ['ഹലോ']]]] });
+  });
+  await page.goto('/');
+  const editor = page.getByLabel('Malayalam editor', { exact: true });
+  await editor.fill('hello');
+  await expect(editor).toHaveValue('ഹലോ');
+  const spelling = page.getByLabel('Spelling for hello');
+  await expect(spelling).toBeVisible();
+  await expect(spelling.locator('option')).toHaveCount(2);
+  await spelling.selectOption({ label: 'Keep as typed: hello' });
+  await expect(editor).toHaveValue('hello');
 });
 
 test('keeps an already converted word visible while the next word is converting', async ({

@@ -24,6 +24,7 @@ import {
 import { useOffline } from './useOffline';
 import { InlineEditor } from './editor/InlineEditor';
 import { FontSearchPicker, type FontChoice } from './components/FontSearchPicker';
+import { DEFAULT_FONT_PREVIEW_TEXT } from './fontPreview';
 import {
   mapOffset,
   readDocument,
@@ -69,8 +70,10 @@ export default function App() {
   );
   const unicodeText = renderDocument(documentModel, engine.preview);
   const isLegacy = outputMode !== 'Unicode';
+  const encoderSource =
+    view === 'fonts' && !unicodeText.trim() ? DEFAULT_FONT_PREVIEW_TEXT : unicodeText;
   const encoder = useEngine(
-    unicodeText,
+    encoderSource,
     (!isLegacy && view !== 'fonts') || !engine.current || composing,
     'encode',
   );
@@ -589,28 +592,46 @@ export default function App() {
                 ) : null}
               </>
             ) : null}
-            {engine.segments.some((segment) => segment.candidates.length > 1) ? (
-              <details className="google-spellings card">
-                <summary>Choose another spelling · Google suggestions</summary>
+            {engine.segments.some((segment) => segment.candidates.length > 0) ? (
+              <section className="google-spellings card" aria-label="Google spelling suggestions">
+                <div className="google-suggestions-heading">
+                  <strong>Word suggestions</strong>
+                  <span>Choose a Malayalam spelling or keep the word as typed.</span>
+                </div>
                 {engine.segments.map((segment, index) =>
-                  segment.candidates.length > 1 ? (
-                    <label className="spelling-choice" key={index}>
-                      <span>{segment.source}</span>
+                  segment.candidates.length > 0 ? (
+                    <label className="spelling-choice" key={`${index}:${segment.source}`}>
+                      <span lang="en">{segment.source}</span>
                       <select
                         lang="ml"
                         aria-label={`Spelling for ${segment.source}`}
-                        value={segment.text}
+                        value={
+                          segment.text === segment.source
+                            ? `source:${segment.source}`
+                            : segment.text
+                        }
                         onChange={(event) => {
+                          const selection = event.target.value;
                           const chosen = engine.segments
-                            .map((part, i) => (i === index ? event.target.value : part.text))
+                            .map((part, i) =>
+                              i === index
+                                ? selection === `source:${segment.source}`
+                                  ? segment.source
+                                  : selection
+                                : part.text,
+                            )
                             .join('');
                           setDocumentModel({
                             document: renderDocument(documentModel, chosen),
                             active: null,
                           });
+                          setManualCopy(false);
                         }}
                         style={{ fontFamily: activeFont.cssFamily }}
                       >
+                        <option value={`source:${segment.source}`}>
+                          Keep as typed: {segment.source}
+                        </option>
                         {segment.candidates.map((candidate) => (
                           <option key={candidate} value={candidate}>
                             {candidate}
@@ -620,7 +641,7 @@ export default function App() {
                     </label>
                   ) : null,
                 )}
-              </details>
+              </section>
             ) : null}
             {outputError ? (
               <div className="banner error-banner" role="alert">
@@ -651,6 +672,7 @@ export default function App() {
             store={library}
             sample={unicodeText}
             encodedSample={encoder.current ? encoder.output : ''}
+            encodedSampleCurrent={encoder.current}
             previewSource={documentModel.active?.roman ?? ''}
             provider={prefs.provider}
             online={offline.online}

@@ -12,6 +12,12 @@ import {
 import { fonts } from '../catalogue';
 import { useEngine } from '../engine/useEngine';
 import { useTransliteration } from '../engine/useTransliteration';
+import {
+  DEFAULT_FONT_PREVIEW_TEXT,
+  fontPreviewMapLabel,
+  localFontMapVersion,
+  resolveFontPreview,
+} from '../fontPreview';
 import type { Preferences } from '../preferences';
 import { type LibraryStore } from '../hosted';
 import { downloadFontFamilyArchive, type FontDownloadSource } from '../fontFamilyDownload';
@@ -20,26 +26,40 @@ import { ReportSourceFont } from './ReportSourceFont';
 import './source-fonts.css';
 
 const DEFAULT_PREVIEW_INPUT = 'malayalam manassil ninnu thanne';
-const DEFAULT_PREVIEW_TEXT = 'മലയാളം മനസ്സിൽ നിന്ന് തന്നെ';
 
 function useLiveFontPreview(
   input: string,
   provider: Preferences['provider'],
   online: boolean,
+  encoding = 'Unicode',
   mapVersion = '',
 ) {
   const transliteration = useTransliteration(input, false, provider, online);
+  const usesMap = resolveFontPreview(encoding, mapVersion, '', '').kind === 'mapped';
   const encoded = useEngine(
-    mapVersion ? transliteration.preview : '',
-    !mapVersion || !transliteration.current,
+    usesMap ? transliteration.preview : '',
+    !usesMap || !transliteration.current,
     'encode',
   );
-  const current = transliteration.current && (!mapVersion || encoded.current);
+  const preview = resolveFontPreview(encoding, mapVersion, transliteration.preview, encoded.output);
+  const current = transliteration.current && (preview.kind !== 'mapped' || encoded.current);
   return {
-    text: mapVersion ? encoded.output : transliteration.preview,
+    text: preview.text ?? '',
+    kind: preview.kind,
+    mapVersion,
     current,
-    mapped: !!mapVersion && encoded.current,
+    mapped: preview.kind === 'mapped' && encoded.current,
   };
+}
+
+function FontMapNotice({ detail = false }: { detail?: boolean }) {
+  return (
+    <p className="font-map-notice" role="status">
+      {detail
+        ? 'No verified Malayalam character map is available for this font yet.'
+        : 'Malayalam preview needs a verified map.'}
+    </p>
+  );
 }
 
 function useFamilyDownload() {
@@ -172,7 +192,10 @@ function HostedSpecimen({
   sample: string;
 }) {
   const [error, setError] = useState('');
+  const preview = resolveFontPreview(font.encoding, '', sample, '');
   useEffect(() => {
+    if (preview.kind === 'needs-map') return;
+    if (preview.kind !== 'unicode') return;
     let live = true;
     void store.load(font).catch(() => {
       if (live) setError('Preview unavailable');
@@ -180,11 +203,12 @@ function HostedSpecimen({
     return () => {
       live = false;
     };
-  }, [font.id]);
+  }, [font.id, preview.kind]);
   const family = store.families[font.id];
+  if (preview.kind === 'needs-map') return <FontMapNotice />;
   return (
     <p className="catalogue-specimen" lang="ml" style={{ fontFamily: family }}>
-      {family ? sample : error || 'Loading preview…'}
+      {family ? preview.text : error || 'Loading preview…'}
     </p>
   );
 }
@@ -222,7 +246,12 @@ function FontFamilyDetail({
   }, [group.key, previewSource]);
   const active = group.fonts.find((font) => font.id === activeId) ?? group.fonts[0];
   const loadedFamily = active ? store.families[active.id] : undefined;
-  const livePreview = useLiveFontPreview(previewInput, provider, online);
+  const livePreview = useLiveFontPreview(
+    previewInput,
+    provider,
+    online,
+    active?.encoding ?? group.encoding,
+  );
   return (
     <section className="font-detail" aria-labelledby="font-detail-title">
       <button className="text-button font-back" onClick={onBack}>
@@ -330,17 +359,21 @@ function FontFamilyDetail({
           <div className="font-live-preview">
             <div className="font-source-preview-heading">
               <span>Live preview</span>
-              {group.encoding !== 'Unicode' ? (
-                <span className="muted small">Unicode preview</span>
+              {livePreview.kind === 'mapped' ? (
+                <span className="muted small">{fontPreviewMapLabel(livePreview.mapVersion)}</span>
+              ) : livePreview.kind === 'needs-map' ? (
+                <span className="muted small">Map needed</span>
               ) : null}
             </div>
-            {active && !loadedFamily ? (
+            {active && livePreview.kind === 'unicode' && !loadedFamily ? (
               <HostedSpecimen font={active} store={store} sample="Loading preview…" />
             ) : null}
-            {loadedFamily ? (
+            {livePreview.kind === 'needs-map' ? (
+              <FontMapNotice detail />
+            ) : loadedFamily ? (
               <p
                 className="font-detail-specimen"
-                lang="ml"
+                lang={livePreview.kind === 'mapped' ? undefined : 'ml'}
                 style={{
                   fontFamily: `"${loadedFamily}", "Noto Sans Malayalam", sans-serif`,
                   fontSize: size,
@@ -376,7 +409,10 @@ function SourceFontSpecimen({
   leading: number;
 }) {
   const [error, setError] = useState('');
+  const preview = resolveFontPreview(font.encoding, '', sample, '');
   useEffect(() => {
+    if (preview.kind === 'needs-map') return;
+    if (preview.kind !== 'unicode') return;
     if (!font.assetStored) {
       setError('Font preview is unavailable');
       return;
@@ -389,7 +425,8 @@ function SourceFontSpecimen({
     return () => {
       live = false;
     };
-  }, [font.sourceId, font.assetStored]);
+  }, [font.sourceId, font.assetStored, preview.kind]);
+  if (preview.kind === 'needs-map') return <FontMapNotice />;
   const family = store.families[`source:${font.sourceId}`];
   return family ? (
     <p
@@ -397,7 +434,7 @@ function SourceFontSpecimen({
       lang="ml"
       style={{ fontFamily: family, fontSize: size, lineHeight: leading }}
     >
-      {sample || '…'}
+      {preview.text || '…'}
     </p>
   ) : (
     <p className="muted small" role={error ? 'status' : undefined}>
@@ -438,7 +475,7 @@ function SourceFontDetail({
     ? apiUrl(`/api/source-fonts/${encodeURIComponent(active.sourceId)}/file?download=1`)
     : externalFontDownloadUrl(active);
   const sourceHref = externalFontDownloadUrl(active) ?? active.sourceUrl;
-  const livePreview = useLiveFontPreview(previewInput, provider, online);
+  const livePreview = useLiveFontPreview(previewInput, provider, online, active.encoding);
   return (
     <section className="font-detail" aria-labelledby="source-font-detail-title">
       <button className="text-button font-back" onClick={onBack}>
@@ -549,9 +586,15 @@ function SourceFontDetail({
       <div className="font-live-preview">
         <div className="font-source-preview-heading">
           <span>Live preview</span>
-          <span className="muted small">Unicode preview</span>
+          {livePreview.kind === 'unicode' ? (
+            <span className="muted small">Unicode</span>
+          ) : (
+            <span className="muted small">Map needed</span>
+          )}
         </div>
-        {active.assetStored ? (
+        {livePreview.kind === 'needs-map' ? (
+          <FontMapNotice detail />
+        ) : active.assetStored ? (
           <SourceFontSpecimen
             font={active}
             store={store}
@@ -587,14 +630,19 @@ function LocalFontSpecimen({
   store,
   sample,
   encodedSample,
+  encodedSampleCurrent,
 }: {
   font: LocalFontAsset;
   store: LibraryStore;
   sample: string;
   encodedSample: string;
+  encodedSampleCurrent: boolean;
 }) {
   const [error, setError] = useState('');
+  const mapVersion = localFontMapVersion(font);
+  const preview = resolveFontPreview(font.encoding, mapVersion, sample, encodedSample);
   useEffect(() => {
+    if (preview.kind === 'needs-map') return;
     let live = true;
     void store.loadAsset(font).catch((reason) => {
       if (live) setError(reason instanceof Error ? reason.message : 'Font preview unavailable');
@@ -602,16 +650,19 @@ function LocalFontSpecimen({
     return () => {
       live = false;
     };
-  }, [font.id]);
+  }, [font.id, preview.kind]);
   const family = store.families[`asset:${font.id}`];
+  if (preview.kind === 'needs-map') return <FontMapNotice />;
+  if (preview.kind === 'mapped' && !encodedSampleCurrent)
+    return <p className="muted small">Converting preview…</p>;
   if (!family) return <p className="muted small">{error || 'Loading preview…'}</p>;
   return (
     <p
       className="catalogue-specimen"
-      lang={font.mapVersion ? undefined : 'ml'}
+      lang={preview.kind === 'mapped' ? undefined : 'ml'}
       style={{ fontFamily: `"${family}", "Noto Sans Malayalam", sans-serif` }}
     >
-      {font.mapVersion ? encodedSample || sample : sample}
+      {preview.text}
     </p>
   );
 }
@@ -646,6 +697,10 @@ function LocalFontDetail({
     [leading, setLeading] = useState(1.8),
     [error, setError] = useState('');
   const active = group.fonts.find((font) => font.id === activeId) ?? defaultFont;
+  const activeMapVersion = active ? localFontMapVersion(active) : '';
+  const activePreview = active
+    ? resolveFontPreview(active.encoding, activeMapVersion, '', '')
+    : { kind: 'needs-map' as const, text: null };
   useEffect(() => {
     if (!active) return;
     setPreviewInput(previewSource.trim() || DEFAULT_PREVIEW_INPUT);
@@ -653,6 +708,7 @@ function LocalFontDetail({
   }, [group.key, previewSource]);
   useEffect(() => {
     if (!active) return;
+    if (activePreview.kind === 'needs-map') return;
     let live = true;
     void store.loadAsset(active).catch((reason) => {
       if (live) setError(reason instanceof Error ? reason.message : 'Font preview unavailable');
@@ -660,8 +716,14 @@ function LocalFontDetail({
     return () => {
       live = false;
     };
-  }, [active?.id]);
-  const livePreview = useLiveFontPreview(previewInput, provider, online, active?.mapVersion);
+  }, [active?.id, activePreview.kind]);
+  const livePreview = useLiveFontPreview(
+    previewInput,
+    provider,
+    online,
+    active?.encoding ?? 'Other',
+    activeMapVersion,
+  );
   const family = active ? store.families[`asset:${active.id}`] : undefined;
   return (
     <section className="font-detail" aria-labelledby="asset-font-detail-title">
@@ -785,18 +847,18 @@ function LocalFontDetail({
           <div className="font-live-preview">
             <div className="font-source-preview-heading">
               <span>Live preview</span>
-              {active.mapVersion ? (
-                <span className="muted small">
-                  Verified {fontEncodingLabel(active.encoding)} map
-                </span>
-              ) : active.encoding !== 'Unicode' ? (
-                <span className="muted small">Unicode preview</span>
+              {livePreview.kind === 'mapped' ? (
+                <span className="muted small">{fontPreviewMapLabel(livePreview.mapVersion)}</span>
+              ) : livePreview.kind === 'needs-map' ? (
+                <span className="muted small">Map needed</span>
               ) : null}
             </div>
-            {family ? (
+            {livePreview.kind === 'needs-map' ? (
+              <FontMapNotice detail />
+            ) : family ? (
               <p
                 className="font-detail-specimen"
-                lang={livePreview.mapped ? undefined : 'ml'}
+                lang={livePreview.kind === 'mapped' ? undefined : 'ml'}
                 style={{
                   fontFamily: `"${family}", "Noto Sans Malayalam", sans-serif`,
                   fontSize: size,
@@ -925,6 +987,7 @@ function BundledFontDetail({
 export function Fonts({
   sample,
   encodedSample,
+  encodedSampleCurrent,
   previewSource,
   provider,
   online,
@@ -932,6 +995,7 @@ export function Fonts({
 }: {
   sample: string;
   encodedSample: string;
+  encodedSampleCurrent: boolean;
   previewSource: string;
   provider: Preferences['provider'];
   online: boolean;
@@ -949,7 +1013,7 @@ export function Fonts({
     [report, setReport] = useState<PublishedFont | null>(null),
     [sourceReport, setSourceReport] = useState<ExternalFontSource | LocalFontAsset | null>(null);
   const familyDownload = useFamilyDownload();
-  const preview = sample.trim() || DEFAULT_PREVIEW_TEXT;
+  const preview = sample.trim() || DEFAULT_FONT_PREVIEW_TEXT;
   const match = (name: string, type: string, group: string) =>
     name.toLowerCase().includes(query.toLowerCase()) &&
     (encoding === 'All' || encoding === fontEncodingLabel(type)) &&
@@ -1225,8 +1289,9 @@ export function Fonts({
             ))}
             {localFamilies.map((group) => {
               const specimen =
-                group.fonts.find((font) => font.encoding === 'Unicode' || font.mapVersion) ??
-                group.fonts[0];
+                group.fonts.find(
+                  (font) => font.encoding === 'Unicode' || localFontMapVersion(font),
+                ) ?? group.fonts[0];
               return (
                 <article className="font-family-row local-font-family-row" key={group.key}>
                   <div className="family-row-heading">
@@ -1252,6 +1317,7 @@ export function Fonts({
                         store={store}
                         sample={preview}
                         encodedSample={encodedSample}
+                        encodedSampleCurrent={encodedSampleCurrent}
                       />
                     </div>
                     <div className="catalogue-actions family-row-actions">
