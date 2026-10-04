@@ -938,6 +938,7 @@ export function Fonts({
   store: LibraryStore;
 }) {
   const [query, setQuery] = useState(''),
+    [viewMode, setViewMode] = useState<'list' | 'cards'>('list'),
     [encoding, setEncoding] = useState('All'),
     [category, setCategory] = useState('All'),
     [size, setSize] = useState(32),
@@ -1017,7 +1018,7 @@ export function Fonts({
     >
       <div className="page-heading section-heading">
         <h1>Fonts</h1>
-        <span className="muted small">
+        <span className="font-total-badge">
           {bundled.length + remote.length + sourceFonts.length + localAssets.length} fonts
         </span>
       </div>
@@ -1118,8 +1119,24 @@ export function Fonts({
                 onChange={(event) => setSize(Number(event.target.value))}
               />
             </label>
+            <div className="catalogue-view-toggle" role="group" aria-label="Font display">
+              <button
+                className={viewMode === 'list' ? 'selected' : ''}
+                aria-pressed={viewMode === 'list'}
+                onClick={() => setViewMode('list')}
+              >
+                List
+              </button>
+              <button
+                className={viewMode === 'cards' ? 'selected' : ''}
+                aria-pressed={viewMode === 'cards'}
+                onClick={() => setViewMode('cards')}
+              >
+                Cards
+              </button>
+            </div>
           </div>
-          <div className="catalogue-list">
+          <div className="catalogue-list" data-view={viewMode}>
             {bundled.map((font) => (
               <article className="catalogue-row" key={font.id}>
                 <div className="catalogue-meta">
@@ -1131,7 +1148,7 @@ export function Fonts({
                 <p className="catalogue-specimen" lang="ml" style={{ fontFamily: font.cssFamily }}>
                   {preview}
                 </p>
-                <div className="catalogue-actions">
+                <div className="catalogue-actions family-row-actions">
                   <button
                     className="button secondary"
                     disabled={!!familyDownload.downloading}
@@ -1170,8 +1187,30 @@ export function Fonts({
                     {group.fonts.length} {group.fonts.length === 1 ? 'style' : 'styles'}
                   </span>
                 </div>
-                <div className="family-specimen">
-                  <HostedSpecimen font={group.fonts[0]} store={store} sample={preview} />
+                <div className="family-catalogue-line">
+                  <div className="family-specimen">
+                    <HostedSpecimen font={group.fonts[0]} store={store} sample={preview} />
+                  </div>
+                  <div className="catalogue-actions family-row-actions">
+                    <button
+                      className="button secondary"
+                      disabled={!!familyDownload.downloading}
+                      onClick={() =>
+                        void familyDownload.download(
+                          group.name,
+                          group.fonts.map((font) => ({
+                            filename: `${group.name} - ${font.variant || 'Regular'}.ttf`,
+                            url: apiUrl(`/api/fonts/${font.id}/file?download=1`),
+                          })),
+                        )
+                      }
+                    >
+                      {familyDownload.downloading === group.name ? 'Preparing…' : 'Download family'}
+                    </button>
+                    <button className="button secondary" onClick={() => setDetailKey(group.key)}>
+                      Details
+                    </button>
+                  </div>
                 </div>
                 <div className="family-row-footer">
                   <div className="family-variants" aria-label={`${group.name} styles`}>
@@ -1181,24 +1220,6 @@ export function Fonts({
                       </span>
                     ))}
                   </div>
-                  <button
-                    className="button secondary"
-                    disabled={!!familyDownload.downloading}
-                    onClick={() =>
-                      void familyDownload.download(
-                        group.name,
-                        group.fonts.map((font) => ({
-                          filename: `${group.name} - ${font.variant || 'Regular'}.ttf`,
-                          url: apiUrl(`/api/fonts/${font.id}/file?download=1`),
-                        })),
-                      )
-                    }
-                  >
-                    {familyDownload.downloading === group.name ? 'Preparing…' : 'Download family'}
-                  </button>
-                  <button className="button secondary" onClick={() => setDetailKey(group.key)}>
-                    Details
-                  </button>
                 </div>
               </article>
             ))}
@@ -1224,13 +1245,40 @@ export function Fonts({
                       {group.fonts.length} {group.fonts.length === 1 ? 'font' : 'fonts'}
                     </span>
                   </div>
-                  <div className="family-specimen">
-                    <LocalFontSpecimen
-                      font={specimen}
-                      store={store}
-                      sample={preview}
-                      encodedSample={encodedSample}
-                    />
+                  <div className="family-catalogue-line">
+                    <div className="family-specimen">
+                      <LocalFontSpecimen
+                        font={specimen}
+                        store={store}
+                        sample={preview}
+                        encodedSample={encodedSample}
+                      />
+                    </div>
+                    <div className="catalogue-actions family-row-actions">
+                      <button
+                        className="button secondary"
+                        disabled={!!familyDownload.downloading}
+                        onClick={() =>
+                          void familyDownload.download(
+                            group.name,
+                            group.fonts.map((font) => ({
+                              filename: font.filename,
+                              url: apiUrl(`/api/font-assets/${font.id}/file?download=1`),
+                            })),
+                          )
+                        }
+                      >
+                        {familyDownload.downloading === group.name
+                          ? 'Preparing…'
+                          : 'Download family'}
+                      </button>
+                      <button
+                        className="button secondary"
+                        onClick={() => setAssetDetailId(specimen.id)}
+                      >
+                        Details
+                      </button>
+                    </div>
                   </div>
                   <div className="family-row-footer">
                     <div className="family-variants" aria-label={`${group.name} styles`}>
@@ -1240,105 +1288,103 @@ export function Fonts({
                         </span>
                       ))}
                     </div>
-                    <button
-                      className="button secondary"
-                      disabled={!!familyDownload.downloading}
-                      onClick={() =>
-                        void familyDownload.download(
-                          group.name,
-                          group.fonts.map((font) => ({
-                            filename: font.filename,
-                            url: apiUrl(`/api/font-assets/${font.id}/file?download=1`),
-                          })),
-                        )
-                      }
-                    >
-                      {familyDownload.downloading === group.name ? 'Preparing…' : 'Download family'}
-                    </button>
-                    <button
-                      className="button secondary"
-                      onClick={() => setAssetDetailId(specimen.id)}
-                    >
-                      Details
-                    </button>
                   </div>
                 </article>
               );
             })}
             {sourceFonts.length ? (
-              <section className="external-font-index" aria-label="Source fonts">
-                {sourceFamilies.map((group) => (
-                  <details className="external-font-family" key={group.key}>
-                    <summary className="family-row-heading">
-                      <div>
-                        <h3>{group.name}</h3>
-                        <p className="muted small">
-                          {group.encoding} · {group.category}
-                        </p>
+              <section className="external-font-index" aria-label="Original source catalogue">
+                <div className="external-font-index-heading">
+                  <div>
+                    <p className="eyebrow">Original source</p>
+                    <h2>More font listings</h2>
+                    <p className="external-font-index-note">
+                      Browse source records by family. Downloads open the source site when a file is
+                      not stored here.
+                    </p>
+                  </div>
+                  <span className="font-total-badge">{sourceFonts.length} fonts</span>
+                </div>
+                <div className="external-font-families">
+                  {sourceFamilies.map((group) => (
+                    <details className="external-font-family" key={group.key}>
+                      <summary className="family-row-heading">
+                        <div>
+                          <h3>{group.name}</h3>
+                          <p className="muted small">
+                            {group.encoding} · {group.category}
+                          </p>
+                        </div>
+                        <span className="family-style-count">
+                          {group.fonts.length} {group.fonts.length === 1 ? 'font' : 'fonts'}
+                        </span>
+                      </summary>
+                      <div className="family-catalogue-line">
+                        <div className="family-specimen">
+                          <SourceFontSpecimen
+                            font={group.fonts[0]}
+                            store={store}
+                            sample={preview}
+                            size={size}
+                            leading={1.8}
+                          />
+                        </div>
+                        <span className="muted small source-list-hint">
+                          {group.fonts.length} source{' '}
+                          {group.fonts.length === 1 ? 'entry' : 'entries'}
+                        </span>
                       </div>
-                      <span className="family-style-count">
-                        {group.fonts.length} {group.fonts.length === 1 ? 'font' : 'fonts'}
-                      </span>
-                    </summary>
-                    <div className="family-specimen">
-                      <SourceFontSpecimen
-                        font={group.fonts[0]}
-                        store={store}
-                        sample={preview}
-                        size={size}
-                        leading={1.8}
-                      />
-                    </div>
-                    <div className="external-font-items">
-                      {group.fonts.map((font) => {
-                        const downloadUrl = externalFontDownloadUrl(font);
-                        return (
-                          <article className="external-font-item" key={font.sourceId}>
-                            <div className="external-font-copy">
-                              <h4>
-                                {font.name} <span className="source-badge">Source</span>
-                              </h4>
-                              <p className="muted small">
-                                {fontEncodingLabel(font.encoding)} ·{' '}
-                                {font.variant || 'Style not listed'}
-                              </p>
-                            </div>
-                            <div className="external-font-actions">
-                              {font.assetStored ? (
-                                <a
+                      <div className="external-font-items">
+                        {group.fonts.map((font) => {
+                          const downloadUrl = externalFontDownloadUrl(font);
+                          return (
+                            <article className="external-font-item" key={font.sourceId}>
+                              <div className="external-font-copy">
+                                <h4>
+                                  {font.name} <span className="source-badge">Source</span>
+                                </h4>
+                                <p className="muted small">
+                                  {fontEncodingLabel(font.encoding)} ·{' '}
+                                  {font.variant || 'Style not listed'}
+                                </p>
+                              </div>
+                              <div className="external-font-actions">
+                                {font.assetStored ? (
+                                  <a
+                                    className="button secondary"
+                                    href={apiUrl(
+                                      `/api/source-fonts/${encodeURIComponent(font.sourceId)}/file?download=1`,
+                                    )}
+                                    download
+                                  >
+                                    Download
+                                  </a>
+                                ) : !downloadUrl ? (
+                                  <span className="muted small">Download unavailable</span>
+                                ) : (
+                                  <a
+                                    className="button secondary"
+                                    href={downloadUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    Download
+                                  </a>
+                                )}
+                                <button
                                   className="button secondary"
-                                  href={apiUrl(
-                                    `/api/source-fonts/${encodeURIComponent(font.sourceId)}/file?download=1`,
-                                  )}
-                                  download
+                                  onClick={() => setSourceDetailId(font.sourceId)}
                                 >
-                                  Download
-                                </a>
-                              ) : !downloadUrl ? (
-                                <span className="muted small">Download unavailable</span>
-                              ) : (
-                                <a
-                                  className="button secondary"
-                                  href={downloadUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Download
-                                </a>
-                              )}
-                              <button
-                                className="button secondary"
-                                onClick={() => setSourceDetailId(font.sourceId)}
-                              >
-                                Details
-                              </button>
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </details>
-                ))}
+                                  Details
+                                </button>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  ))}
+                </div>
               </section>
             ) : null}
             {!bundled.length &&

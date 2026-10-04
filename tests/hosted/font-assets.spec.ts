@@ -113,6 +113,13 @@ test('R2 catalogue assets preview, download and pause after a copyright report',
   await page.getByLabel('Search fonts and families').fill(family);
   const row = page.locator('.local-font-family-row').filter({ hasText: family });
   await expect(row).toBeVisible();
+  const catalogue = page.locator('.catalogue-list');
+  await expect(catalogue).toHaveAttribute('data-view', 'list');
+  await page.getByRole('button', { name: 'Cards', exact: true }).click();
+  await expect(catalogue).toHaveAttribute('data-view', 'cards');
+  await expect(row).toHaveCSS('display', 'flex');
+  await page.getByRole('button', { name: 'List', exact: true }).click();
+  await expect(catalogue).toHaveAttribute('data-view', 'list');
   await row.getByRole('button', { name: 'Details' }).click();
   await expect(page.getByRole('heading', { name: family })).toBeVisible();
   await page.getByLabel('Type Manglish preview text').fill('manassil ninnu thanne');
