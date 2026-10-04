@@ -4,16 +4,61 @@ import {
   categories,
   encodings,
   externalFontDownloadUrl,
+  fontEncodingLabel,
   type ExternalFontSource,
   type LocalFontAsset,
   type PublishedFont,
 } from '@lipiflow/library';
 import { fonts } from '../catalogue';
 import { useEngine } from '../engine/useEngine';
+import { useTransliteration } from '../engine/useTransliteration';
+import type { Preferences } from '../preferences';
 import { type LibraryStore } from '../hosted';
+import { downloadFontFamilyArchive, type FontDownloadSource } from '../fontFamilyDownload';
 import { ReportFont } from './ReportFont';
 import { ReportSourceFont } from './ReportSourceFont';
 import './source-fonts.css';
+
+const DEFAULT_PREVIEW_INPUT = 'malayalam manassil ninnu thanne';
+const DEFAULT_PREVIEW_TEXT = 'മലയാളം മനസ്സിൽ നിന്ന് തന്നെ';
+
+function useLiveFontPreview(
+  input: string,
+  provider: Preferences['provider'],
+  online: boolean,
+  mapVersion = '',
+) {
+  const transliteration = useTransliteration(input, false, provider, online);
+  const encoded = useEngine(
+    mapVersion ? transliteration.preview : '',
+    !mapVersion || !transliteration.current,
+    'encode',
+  );
+  const current = transliteration.current && (!mapVersion || encoded.current);
+  return {
+    text: mapVersion ? encoded.output : transliteration.preview,
+    current,
+    mapped: !!mapVersion && encoded.current,
+  };
+}
+
+function useFamilyDownload() {
+  const [downloading, setDownloading] = useState('');
+  const [notice, setNotice] = useState('');
+  async function download(name: string, files: FontDownloadSource[]) {
+    setDownloading(name);
+    setNotice('');
+    try {
+      await downloadFontFamilyArchive(name, files);
+      setNotice(`${name} family downloaded.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not download this font family.');
+    } finally {
+      setDownloading('');
+    }
+  }
+  return { downloading, notice, download };
+}
 
 type FontFamily = {
   key: string;
@@ -66,11 +111,12 @@ function groupSourceFonts(items: ExternalFontSource[]): SourceFontFamily[] {
   const groups = new Map<string, SourceFontFamily>();
   for (const font of items) {
     const name = font.family.trim() || font.name;
-    const key = `${font.encoding}:${name.toLocaleLowerCase()}`;
+    const encoding = fontEncodingLabel(font.encoding);
+    const key = `${encoding}:${name.toLocaleLowerCase()}`;
     const group = groups.get(key) ?? {
       key,
       name,
-      encoding: font.encoding,
+      encoding,
       category: font.sourceCategory || 'General',
       fonts: [],
     };
@@ -94,11 +140,12 @@ function groupLocalFonts(items: LocalFontAsset[]): LocalFontFamily[] {
   const groups = new Map<string, LocalFontFamily>();
   for (const font of items) {
     const name = font.family.trim() || font.name;
-    const key = `${font.encoding}:${name.toLocaleLowerCase()}`;
+    const encoding = fontEncodingLabel(font.encoding);
+    const key = `${encoding}:${name.toLocaleLowerCase()}`;
     const group = groups.get(key) ?? {
       key,
       name,
-      encoding: font.encoding,
+      encoding,
       category: font.sourceCategory || 'Downloaded',
       fonts: [],
     };
@@ -145,33 +192,37 @@ function HostedSpecimen({
 function FontFamilyDetail({
   group,
   store,
-  sample,
-  encodedSample,
+  previewSource,
+  provider,
+  online,
+  onDownload,
+  downloading,
+  downloadNotice,
   onBack,
   onReport,
 }: {
   group: FontFamily;
   store: LibraryStore;
-  sample: string;
-  encodedSample: string;
+  previewSource: string;
+  provider: Preferences['provider'];
+  online: boolean;
+  onDownload(name: string, files: FontDownloadSource[]): void;
+  downloading: string;
+  downloadNotice: string;
   onBack(): void;
   onReport(font: PublishedFont): void;
 }) {
   const [activeId, setActiveId] = useState(group.fonts[0]?.id ?? ''),
-    [preview, setPreview] = useState(
-      group.encoding === 'Unicode' ? sample.trim() || 'മലയാളം, മനസ്സിൽ നിന്ന്.' : encodedSample,
-    ),
+    [previewInput, setPreviewInput] = useState(previewSource.trim() || DEFAULT_PREVIEW_INPUT),
     [size, setSize] = useState(42),
     [leading, setLeading] = useState(1.8);
   useEffect(() => {
     setActiveId(group.fonts[0]?.id ?? '');
-    setPreview(
-      group.encoding === 'Unicode' ? sample.trim() || 'മലയാളം, മനസ്സിൽ നിന്ന്.' : encodedSample,
-    );
-  }, [group.key, sample, encodedSample]);
+    setPreviewInput(previewSource.trim() || DEFAULT_PREVIEW_INPUT);
+  }, [group.key, previewSource]);
   const active = group.fonts.find((font) => font.id === activeId) ?? group.fonts[0];
   const loadedFamily = active ? store.families[active.id] : undefined;
-  const renderText = preview || '…';
+  const livePreview = useLiveFontPreview(previewInput, provider, online);
   return (
     <section className="font-detail" aria-labelledby="font-detail-title">
       <button className="text-button font-back" onClick={onBack}>
@@ -187,16 +238,27 @@ function FontFamilyDetail({
             {group.fonts.length} {group.fonts.length === 1 ? 'style' : 'styles'}
           </p>
         </div>
-        {active ? (
-          <a
-            className="button secondary"
-            href={apiUrl(`/api/fonts/${active.id}/file?download=1`)}
-            download
-          >
-            Download {active.variant}
-          </a>
-        ) : null}
+        <button
+          className="button secondary"
+          disabled={!!downloading}
+          onClick={() =>
+            void onDownload(
+              group.name,
+              group.fonts.map((font) => ({
+                filename: `${group.name} - ${font.variant || 'Regular'}.ttf`,
+                url: apiUrl(`/api/fonts/${font.id}/file?download=1`),
+              })),
+            )
+          }
+        >
+          {downloading === group.name ? 'Preparing…' : 'Download family (.zip)'}
+        </button>
       </header>
+      {downloadNotice ? (
+        <p className="font-download-status" role="status">
+          {downloadNotice}
+        </p>
+      ) : null}
       {active ? (
         <>
           <div className="font-detail-info">
@@ -233,19 +295,16 @@ function FontFamilyDetail({
           </div>
           <div className="font-preview-controls">
             <label className="preview-text-control">
-              Preview text
+              Type Manglish
               <textarea
-                value={preview}
+                aria-label="Type Manglish preview text"
+                placeholder={DEFAULT_PREVIEW_INPUT}
+                value={previewInput}
                 rows={2}
-                onChange={(event) => setPreview(event.target.value)}
+                onChange={(event) => setPreviewInput(event.target.value)}
               />
+              <span className="font-preview-hint">Live Malayalam · “manassil ninnu thanne”</span>
             </label>
-            {active.encoding !== 'Unicode' ? (
-              <p className="muted small legacy-preview-note">
-                For {active.encoding}, enter text already encoded for this font. A conversion map is
-                only available when verified.
-              </p>
-            ) : null}
             <label>
               Size · {size}px
               <input
@@ -269,6 +328,12 @@ function FontFamilyDetail({
             </label>
           </div>
           <div className="font-live-preview">
+            <div className="font-source-preview-heading">
+              <span>Live preview</span>
+              {group.encoding !== 'Unicode' ? (
+                <span className="muted small">Unicode preview</span>
+              ) : null}
+            </div>
             {active && !loadedFamily ? (
               <HostedSpecimen font={active} store={store} sample="Loading preview…" />
             ) : null}
@@ -276,9 +341,13 @@ function FontFamilyDetail({
               <p
                 className="font-detail-specimen"
                 lang="ml"
-                style={{ fontFamily: loadedFamily, fontSize: size, lineHeight: leading }}
+                style={{
+                  fontFamily: `"${loadedFamily}", "Noto Sans Malayalam", sans-serif`,
+                  fontSize: size,
+                  lineHeight: leading,
+                }}
               >
-                {renderText}
+                {livePreview.current ? livePreview.text : 'Converting…'}
               </p>
             ) : null}
           </div>
@@ -341,33 +410,35 @@ function SourceFontDetail({
   group,
   selectedSourceId,
   store,
-  sample,
+  previewSource,
+  provider,
+  online,
   onBack,
   onReport,
 }: {
   group: SourceFontFamily;
   selectedSourceId: string;
   store: LibraryStore;
-  sample: string;
+  previewSource: string;
+  provider: Preferences['provider'];
+  online: boolean;
   onBack(): void;
   onReport(font: ExternalFontSource): void;
 }) {
   const [activeId, setActiveId] = useState(selectedSourceId);
-  const [preview, setPreview] = useState(sample.trim() || 'മലയാളം, മനസ്സിൽ നിന്ന്.');
+  const [previewInput, setPreviewInput] = useState(previewSource.trim() || DEFAULT_PREVIEW_INPUT);
   const [size, setSize] = useState(42);
   const [leading, setLeading] = useState(1.8);
   useEffect(() => {
     setActiveId(selectedSourceId);
-    setPreview(sample.trim() || 'മലയാളം, മനസ്സിൽ നിന്ന്.');
-  }, [group.key, selectedSourceId, sample]);
+    setPreviewInput(previewSource.trim() || DEFAULT_PREVIEW_INPUT);
+  }, [group.key, selectedSourceId, previewSource]);
   const active = group.fonts.find((font) => font.sourceId === activeId) ?? group.fonts[0];
   const downloadUrl = active.assetStored
     ? apiUrl(`/api/source-fonts/${encodeURIComponent(active.sourceId)}/file?download=1`)
     : externalFontDownloadUrl(active);
   const sourceHref = externalFontDownloadUrl(active) ?? active.sourceUrl;
-  const encodedPreview = useEngine(preview, false, 'encode');
-  const shownPreview =
-    active.encoding === 'Unicode' ? preview : encodedPreview.current ? encodedPreview.output : '';
+  const livePreview = useLiveFontPreview(previewInput, provider, online);
   return (
     <section className="font-detail" aria-labelledby="source-font-detail-title">
       <button className="text-button font-back" onClick={onBack}>
@@ -376,7 +447,7 @@ function SourceFontDetail({
       <header className="font-detail-heading">
         <div>
           <p className="eyebrow">
-            <span className="source-badge">Source</span> {active.encoding} ·{' '}
+            <span className="source-badge">Source</span> {fontEncodingLabel(active.encoding)} ·{' '}
             {active.sourceCategory || 'General'}
           </p>
           <h2 id="source-font-detail-title">{active.name}</h2>
@@ -422,7 +493,7 @@ function SourceFontDetail({
           </div>
           <div>
             <dt>Encoding</dt>
-            <dd>{active.encoding}</dd>
+            <dd>{fontEncodingLabel(active.encoding)}</dd>
           </div>
           <div>
             <dt>Licence listed by source</dt>
@@ -443,8 +514,15 @@ function SourceFontDetail({
       </div>
       <div className="font-preview-controls">
         <label className="preview-text-control">
-          Type preview text
-          <textarea value={preview} rows={2} onChange={(event) => setPreview(event.target.value)} />
+          Type Manglish
+          <textarea
+            aria-label="Type Manglish preview text"
+            placeholder={DEFAULT_PREVIEW_INPUT}
+            value={previewInput}
+            rows={2}
+            onChange={(event) => setPreviewInput(event.target.value)}
+          />
+          <span className="font-preview-hint">Live Malayalam · “manassil ninnu thanne”</span>
         </label>
         <label>
           Size · {size}px
@@ -471,13 +549,13 @@ function SourceFontDetail({
       <div className="font-live-preview">
         <div className="font-source-preview-heading">
           <span>Live preview</span>
-          {active.assetStored ? null : <span className="muted small">Preview unavailable</span>}
+          <span className="muted small">Unicode preview</span>
         </div>
         {active.assetStored ? (
           <SourceFontSpecimen
             font={active}
             store={store}
-            sample={shownPreview}
+            sample={livePreview.current ? livePreview.text : 'Converting…'}
             size={size}
             leading={leading}
           />
@@ -485,9 +563,13 @@ function SourceFontDetail({
           <p
             className="font-detail-specimen"
             lang="ml"
-            style={{ fontSize: size, lineHeight: leading }}
+            style={{
+              fontFamily: '"Noto Sans Malayalam", sans-serif',
+              fontSize: size,
+              lineHeight: leading,
+            }}
           >
-            {active.encoding === 'Unicode' ? preview : 'Preview requires this font file.'}
+            {livePreview.current ? livePreview.text : 'Converting…'}
           </p>
         )}
       </div>
@@ -512,9 +594,7 @@ function LocalFontSpecimen({
   encodedSample: string;
 }) {
   const [error, setError] = useState('');
-  const hasPreviewMap = font.encoding === 'Unicode' || !!font.mapVersion;
   useEffect(() => {
-    if (!hasPreviewMap) return;
     let live = true;
     void store.loadAsset(font).catch((reason) => {
       if (live) setError(reason instanceof Error ? reason.message : 'Font preview unavailable');
@@ -522,14 +602,16 @@ function LocalFontSpecimen({
     return () => {
       live = false;
     };
-  }, [font.id, hasPreviewMap]);
+  }, [font.id]);
   const family = store.families[`asset:${font.id}`];
-  if (!hasPreviewMap)
-    return <p className="muted small asset-preview-note">Preview needs a verified encoding map.</p>;
   if (!family) return <p className="muted small">{error || 'Loading preview…'}</p>;
   return (
-    <p className="catalogue-specimen" lang="ml" style={{ fontFamily: family }}>
-      {font.encoding === 'Unicode' ? sample : encodedSample || '…'}
+    <p
+      className="catalogue-specimen"
+      lang={font.mapVersion ? undefined : 'ml'}
+      style={{ fontFamily: `"${family}", "Noto Sans Malayalam", sans-serif` }}
+    >
+      {font.mapVersion ? encodedSample || sample : sample}
     </p>
   );
 }
@@ -537,31 +619,38 @@ function LocalFontSpecimen({
 function LocalFontDetail({
   group,
   store,
-  sample,
+  previewSource,
+  provider,
+  online,
+  onDownload,
+  downloading,
+  downloadNotice,
   onBack,
   onReport,
 }: {
   group: LocalFontFamily;
   store: LibraryStore;
-  sample: string;
+  previewSource: string;
+  provider: Preferences['provider'];
+  online: boolean;
+  onDownload(name: string, files: FontDownloadSource[]): void;
+  downloading: string;
+  downloadNotice: string;
   onBack(): void;
   onReport(font: LocalFontAsset): void;
 }) {
-  const defaultFont =
-    group.fonts.find((font) => font.encoding === 'Unicode' || font.mapVersion) ?? group.fonts[0];
+  const defaultFont = group.fonts.find((font) => font.mapVersion) ?? group.fonts[0];
   const [activeId, setActiveId] = useState(defaultFont?.id ?? ''),
-    [preview, setPreview] = useState(
-      group.encoding === 'Unicode' ? sample.trim() || 'മലയാളം, മനസ്സിൽ നിന്ന്.' : sample,
-    ),
+    [previewInput, setPreviewInput] = useState(previewSource.trim() || DEFAULT_PREVIEW_INPUT),
     [size, setSize] = useState(42),
     [leading, setLeading] = useState(1.8),
     [error, setError] = useState('');
   const active = group.fonts.find((font) => font.id === activeId) ?? defaultFont;
   useEffect(() => {
     if (!active) return;
-    setPreview(active.encoding === 'Unicode' ? sample.trim() || 'മലയാളം, മനസ്സിൽ നിന്ന്.' : sample);
+    setPreviewInput(previewSource.trim() || DEFAULT_PREVIEW_INPUT);
     setError('');
-  }, [group.key, activeId, sample]);
+  }, [group.key, previewSource]);
   useEffect(() => {
     if (!active) return;
     let live = true;
@@ -572,20 +661,8 @@ function LocalFontDetail({
       live = false;
     };
   }, [active?.id]);
-  const encoder = useEngine(
-    preview,
-    !!active && active.encoding !== 'Unicode' && !active.mapVersion,
-    'encode',
-  );
+  const livePreview = useLiveFontPreview(previewInput, provider, online, active?.mapVersion);
   const family = active ? store.families[`asset:${active.id}`] : undefined;
-  const previewText =
-    active?.encoding === 'Unicode'
-      ? preview
-      : active?.mapVersion
-        ? encoder.current
-          ? encoder.output
-          : ''
-        : preview;
   return (
     <section className="font-detail" aria-labelledby="asset-font-detail-title">
       <button className="text-button font-back" onClick={onBack}>
@@ -596,21 +673,34 @@ function LocalFontDetail({
           <header className="font-detail-heading">
             <div>
               <p className="eyebrow">
-                {active.encoding} · {active.sourceCategory}
+                {fontEncodingLabel(active.encoding)} · {active.sourceCategory}
               </p>
               <h2 id="asset-font-detail-title">{group.name}</h2>
               <p className="muted">
                 {group.fonts.length} {group.fonts.length === 1 ? 'style' : 'styles'}
               </p>
             </div>
-            <a
+            <button
               className="button primary"
-              href={apiUrl(`/api/font-assets/${active.id}/file?download=1`)}
-              download
+              disabled={!!downloading}
+              onClick={() =>
+                void onDownload(
+                  group.name,
+                  group.fonts.map((font) => ({
+                    filename: font.filename,
+                    url: apiUrl(`/api/font-assets/${font.id}/file?download=1`),
+                  })),
+                )
+              }
             >
-              Download {active.variant || 'font'}
-            </a>
+              {downloading === group.name ? 'Preparing…' : 'Download family (.zip)'}
+            </button>
           </header>
+          {downloadNotice ? (
+            <p className="font-download-status" role="status">
+              {downloadNotice}
+            </p>
+          ) : null}
           <div className="font-style-list" aria-label="Available styles">
             {group.fonts.map((font) => (
               <button
@@ -635,11 +725,7 @@ function LocalFontDetail({
               </div>
               <div>
                 <dt>Encoding</dt>
-                <dd>{active.encoding}</dd>
-              </div>
-              <div>
-                <dt>Map status</dt>
-                <dd>{active.mapVersion ? `Verified · ${active.mapVersion}` : 'Not verified'}</dd>
+                <dd>{fontEncodingLabel(active.encoding)}</dd>
               </div>
               <div>
                 <dt>Licence listed by source</dt>
@@ -664,14 +750,15 @@ function LocalFontDetail({
           </div>
           <div className="font-preview-controls">
             <label className="preview-text-control">
-              {active.encoding !== 'Unicode' && !active.mapVersion
-                ? 'Preview text · enter text already encoded for this font'
-                : 'Type preview text'}
+              Type Manglish
               <textarea
-                value={preview}
+                aria-label="Type Manglish preview text"
+                placeholder={DEFAULT_PREVIEW_INPUT}
+                value={previewInput}
                 rows={2}
-                onChange={(event) => setPreview(event.target.value)}
+                onChange={(event) => setPreviewInput(event.target.value)}
               />
+              <span className="font-preview-hint">Live Malayalam · “manassil ninnu thanne”</span>
             </label>
             <label>
               Size · {size}px
@@ -698,17 +785,25 @@ function LocalFontDetail({
           <div className="font-live-preview">
             <div className="font-source-preview-heading">
               <span>Live preview</span>
-              {active.encoding !== 'Unicode' && !active.mapVersion ? (
-                <span className="muted small">Encoding map not verified</span>
+              {active.mapVersion ? (
+                <span className="muted small">
+                  Verified {fontEncodingLabel(active.encoding)} map
+                </span>
+              ) : active.encoding !== 'Unicode' ? (
+                <span className="muted small">Unicode preview</span>
               ) : null}
             </div>
             {family ? (
               <p
                 className="font-detail-specimen"
-                lang={active.encoding === 'Unicode' ? 'ml' : undefined}
-                style={{ fontFamily: family, fontSize: size, lineHeight: leading }}
+                lang={livePreview.mapped ? undefined : 'ml'}
+                style={{
+                  fontFamily: `"${family}", "Noto Sans Malayalam", sans-serif`,
+                  fontSize: size,
+                  lineHeight: leading,
+                }}
               >
-                {previewText || (active.mapVersion ? 'Converting preview…' : 'Type preview text')}
+                {livePreview.current ? livePreview.text : 'Converting…'}
               </p>
             ) : (
               <p className="muted small">{error || 'Loading preview…'}</p>
@@ -727,16 +822,36 @@ function LocalFontDetail({
 
 function BundledFontDetail({
   font,
-  sample,
+  previewSource,
+  provider,
+  online,
+  onDownload,
+  downloading,
+  downloadNotice,
   onBack,
 }: {
   font: (typeof fonts)[number];
-  sample: string;
+  previewSource: string;
+  provider: Preferences['provider'];
+  online: boolean;
+  onDownload(name: string, files: FontDownloadSource[]): void;
+  downloading: string;
+  downloadNotice: string;
   onBack(): void;
 }) {
-  const [preview, setPreview] = useState(sample.trim() || font.sampleText);
+  const [previewInput, setPreviewInput] = useState(previewSource.trim() || DEFAULT_PREVIEW_INPUT);
   const [size, setSize] = useState(42);
-  useEffect(() => setPreview(sample.trim() || font.sampleText), [font.id, sample]);
+  useEffect(
+    () => setPreviewInput(previewSource.trim() || DEFAULT_PREVIEW_INPUT),
+    [font.id, previewSource],
+  );
+  const livePreview = useLiveFontPreview(previewInput, provider, online);
+  const archiveFiles: FontDownloadSource[] = [
+    { filename: `${font.name}-Regular.woff2`, url: font.assets.regular },
+    ...(font.assets.semibold
+      ? [{ filename: `${font.name}-Semibold.woff2`, url: font.assets.semibold }]
+      : []),
+  ];
   return (
     <section className="font-detail" aria-labelledby="bundled-font-detail-title">
       <button className="text-button font-back" onClick={onBack}>
@@ -747,14 +862,19 @@ function BundledFontDetail({
           <p className="eyebrow">Unicode · {font.variant}</p>
           <h2 id="bundled-font-detail-title">{font.name}</h2>
         </div>
-        <a
+        <button
           className="button primary"
-          href={font.assets.regular}
-          download={`${font.id}-regular.woff2`}
+          disabled={!!downloading}
+          onClick={() => void onDownload(font.name, archiveFiles)}
         >
-          Download font
-        </a>
+          {downloading === font.name ? 'Preparing…' : 'Download family (.zip)'}
+        </button>
       </header>
+      {downloadNotice ? (
+        <p className="font-download-status" role="status">
+          {downloadNotice}
+        </p>
+      ) : null}
       <div className="font-detail-info">
         <p>{font.description}</p>
         <div className="font-credit">
@@ -768,8 +888,15 @@ function BundledFontDetail({
       </div>
       <div className="font-preview-controls">
         <label className="preview-text-control">
-          Type preview text
-          <textarea value={preview} rows={2} onChange={(event) => setPreview(event.target.value)} />
+          Type Manglish
+          <textarea
+            aria-label="Type Manglish preview text"
+            placeholder={DEFAULT_PREVIEW_INPUT}
+            value={previewInput}
+            rows={2}
+            onChange={(event) => setPreviewInput(event.target.value)}
+          />
+          <span className="font-preview-hint">Live Malayalam · “manassil ninnu thanne”</span>
         </label>
         <label>
           Size · {size}px
@@ -786,9 +913,9 @@ function BundledFontDetail({
         <p
           className="font-detail-specimen"
           lang="ml"
-          style={{ fontFamily: font.cssFamily, fontSize: size }}
+          style={{ fontFamily: `"${font.cssFamily}", sans-serif`, fontSize: size }}
         >
-          {preview}
+          {livePreview.current ? livePreview.text : 'Converting…'}
         </p>
       </div>
     </section>
@@ -798,10 +925,16 @@ function BundledFontDetail({
 export function Fonts({
   sample,
   encodedSample,
+  previewSource,
+  provider,
+  online,
   store,
 }: {
   sample: string;
   encodedSample: string;
+  previewSource: string;
+  provider: Preferences['provider'];
+  online: boolean;
   store: LibraryStore;
 }) {
   const [query, setQuery] = useState(''),
@@ -814,10 +947,11 @@ export function Fonts({
     [bundledDetailId, setBundledDetailId] = useState(''),
     [report, setReport] = useState<PublishedFont | null>(null),
     [sourceReport, setSourceReport] = useState<ExternalFontSource | LocalFontAsset | null>(null);
-  const preview = sample.trim() || 'മലയാളം, മനസ്സിൽ നിന്ന്.';
+  const familyDownload = useFamilyDownload();
+  const preview = sample.trim() || DEFAULT_PREVIEW_TEXT;
   const match = (name: string, type: string, group: string) =>
     name.toLowerCase().includes(query.toLowerCase()) &&
-    (encoding === 'All' || encoding === type) &&
+    (encoding === 'All' || encoding === fontEncodingLabel(type)) &&
     (category === 'All' || category === group);
   const bundled = fonts.filter((font) =>
     match(font.name, 'Unicode', font.id.includes('serif-') ? 'Serif' : 'Sans serif'),
@@ -855,15 +989,19 @@ export function Fonts({
     ? groupSourceFonts(
         store.sourceFonts.filter(
           (font) =>
-            `${font.encoding}:${(font.family.trim() || font.name).toLocaleLowerCase()}` ===
-            `${sourceDetail.encoding}:${(sourceDetail.family.trim() || sourceDetail.name).toLocaleLowerCase()}`,
+            `${fontEncodingLabel(font.encoding)}:${(font.family.trim() || font.name).toLocaleLowerCase()}` ===
+            `${fontEncodingLabel(sourceDetail.encoding)}:${(sourceDetail.family.trim() || sourceDetail.name).toLocaleLowerCase()}`,
         ),
       ).find((group) => group.fonts.some((font) => font.sourceId === sourceDetailId))
     : undefined;
   const bundledDetail = fonts.find((font) => font.id === bundledDetailId);
   const encodingOptions = [
-    ...new Set([...encodings, ...store.sourceFonts.map((font) => font.encoding)]),
-    ...store.fontAssets.map((font) => font.encoding),
+    ...new Set([
+      ...encodings,
+      'Other',
+      ...store.sourceFonts.map((font) => fontEncodingLabel(font.encoding)),
+      ...store.fontAssets.map((font) => fontEncodingLabel(font.encoding)),
+    ]),
   ];
   const categoryOptions = [
     ...new Set([
@@ -886,14 +1024,24 @@ export function Fonts({
       {bundledDetail ? (
         <BundledFontDetail
           font={bundledDetail}
-          sample={preview}
+          previewSource={previewSource}
+          provider={provider}
+          online={online}
+          onDownload={familyDownload.download}
+          downloading={familyDownload.downloading}
+          downloadNotice={familyDownload.notice}
           onBack={() => setBundledDetailId('')}
         />
       ) : assetDetail && assetDetailGroup ? (
         <LocalFontDetail
           group={assetDetailGroup}
           store={store}
-          sample={sample}
+          previewSource={previewSource}
+          provider={provider}
+          online={online}
+          onDownload={familyDownload.download}
+          downloading={familyDownload.downloading}
+          downloadNotice={familyDownload.notice}
           onBack={() => setAssetDetailId('')}
           onReport={(font) => setSourceReport(font)}
         />
@@ -902,7 +1050,9 @@ export function Fonts({
           group={sourceDetailGroup}
           selectedSourceId={sourceDetail.sourceId}
           store={store}
-          sample={preview}
+          previewSource={previewSource}
+          provider={provider}
+          online={online}
           onBack={() => setSourceDetailId('')}
           onReport={(font) => setSourceReport(font)}
         />
@@ -910,13 +1060,22 @@ export function Fonts({
         <FontFamilyDetail
           group={detail}
           store={store}
-          sample={sample}
-          encodedSample={encodedSample}
+          previewSource={previewSource}
+          provider={provider}
+          online={online}
+          onDownload={familyDownload.download}
+          downloading={familyDownload.downloading}
+          downloadNotice={familyDownload.notice}
           onBack={() => setDetailKey('')}
           onReport={setReport}
         />
       ) : (
         <>
+          {familyDownload.notice ? (
+            <p className="font-download-status" role="status">
+              {familyDownload.notice}
+            </p>
+          ) : null}
           <div className="catalogue-tools">
             <input
               type="search"
@@ -934,7 +1093,7 @@ export function Fonts({
                   aria-pressed={encoding === value}
                   onClick={() => setEncoding(value)}
                 >
-                  {value === 'ML-TT' ? 'ML-TT' : value}
+                  {value}
                 </button>
               ))}
             </div>
@@ -973,13 +1132,25 @@ export function Fonts({
                   {preview}
                 </p>
                 <div className="catalogue-actions">
-                  <a
+                  <button
                     className="button secondary"
-                    href={font.assets.regular}
-                    download={`${font.id}-regular.woff2`}
+                    disabled={!!familyDownload.downloading}
+                    onClick={() =>
+                      void familyDownload.download(font.name, [
+                        { filename: `${font.name}-Regular.woff2`, url: font.assets.regular },
+                        ...(font.assets.semibold
+                          ? [
+                              {
+                                filename: `${font.name}-Semibold.woff2`,
+                                url: font.assets.semibold,
+                              },
+                            ]
+                          : []),
+                      ])
+                    }
                   >
-                    Download
-                  </a>
+                    {familyDownload.downloading === font.name ? 'Preparing…' : 'Download family'}
+                  </button>
                   <button className="button secondary" onClick={() => setBundledDetailId(font.id)}>
                     Details
                   </button>
@@ -1000,11 +1171,7 @@ export function Fonts({
                   </span>
                 </div>
                 <div className="family-specimen">
-                  <HostedSpecimen
-                    font={group.fonts[0]}
-                    store={store}
-                    sample={group.encoding === 'Unicode' ? preview : encodedSample || '…'}
-                  />
+                  <HostedSpecimen font={group.fonts[0]} store={store} sample={preview} />
                 </div>
                 <div className="family-row-footer">
                   <div className="family-variants" aria-label={`${group.name} styles`}>
@@ -1014,6 +1181,21 @@ export function Fonts({
                       </span>
                     ))}
                   </div>
+                  <button
+                    className="button secondary"
+                    disabled={!!familyDownload.downloading}
+                    onClick={() =>
+                      void familyDownload.download(
+                        group.name,
+                        group.fonts.map((font) => ({
+                          filename: `${group.name} - ${font.variant || 'Regular'}.ttf`,
+                          url: apiUrl(`/api/fonts/${font.id}/file?download=1`),
+                        })),
+                      )
+                    }
+                  >
+                    {familyDownload.downloading === group.name ? 'Preparing…' : 'Download family'}
+                  </button>
                   <button className="button secondary" onClick={() => setDetailKey(group.key)}>
                     Details
                   </button>
@@ -1046,24 +1228,33 @@ export function Fonts({
                     <LocalFontSpecimen
                       font={specimen}
                       store={store}
-                      sample={specimen.encoding === 'Unicode' ? preview : sample}
+                      sample={preview}
                       encodedSample={encodedSample}
                     />
                   </div>
                   <div className="family-row-footer">
                     <div className="family-variants" aria-label={`${group.name} styles`}>
                       {group.fonts.map((font) => (
-                        <a
-                          className="style-label asset-download-link"
-                          key={font.id}
-                          href={apiUrl(`/api/font-assets/${font.id}/file?download=1`)}
-                          download
-                          aria-label={`Download ${group.name} ${font.variant || font.filename}`}
-                        >
-                          {font.variant || 'Download'} ↓
-                        </a>
+                        <span className="style-label" key={font.id}>
+                          {font.variant || font.filename}
+                        </span>
                       ))}
                     </div>
+                    <button
+                      className="button secondary"
+                      disabled={!!familyDownload.downloading}
+                      onClick={() =>
+                        void familyDownload.download(
+                          group.name,
+                          group.fonts.map((font) => ({
+                            filename: font.filename,
+                            url: apiUrl(`/api/font-assets/${font.id}/file?download=1`),
+                          })),
+                        )
+                      }
+                    >
+                      {familyDownload.downloading === group.name ? 'Preparing…' : 'Download family'}
+                    </button>
                     <button
                       className="button secondary"
                       onClick={() => setAssetDetailId(specimen.id)}
@@ -1093,7 +1284,7 @@ export function Fonts({
                       <SourceFontSpecimen
                         font={group.fonts[0]}
                         store={store}
-                        sample={group.encoding === 'Unicode' ? preview : encodedSample || '…'}
+                        sample={preview}
                         size={size}
                         leading={1.8}
                       />
@@ -1108,7 +1299,8 @@ export function Fonts({
                                 {font.name} <span className="source-badge">Source</span>
                               </h4>
                               <p className="muted small">
-                                {font.encoding} · {font.variant || 'Style not listed'}
+                                {fontEncodingLabel(font.encoding)} ·{' '}
+                                {font.variant || 'Style not listed'}
                               </p>
                             </div>
                             <div className="external-font-actions">

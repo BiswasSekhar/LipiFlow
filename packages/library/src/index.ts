@@ -2,6 +2,16 @@ import { z } from 'zod';
 
 export const categories = ['Sans serif', 'Serif', 'Display', 'Handwriting', 'Traditional'] as const;
 export const encodings = ['Unicode', 'FML', 'ML-TT'] as const;
+export function fontEncodingLabel(value: string): string {
+  const normalized = value
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[\s_]+/g, '-');
+  if (normalized === 'unicode') return 'Unicode';
+  if (normalized === 'fml') return 'FML';
+  if (normalized === 'ml-tt' || normalized === 'mltt') return 'ML-TT';
+  return 'Other';
+}
 export const maxFontBytes = 10 * 1024 * 1024;
 const https = z.url().refine((value) => new URL(value).protocol === 'https:', 'Use an HTTPS link');
 export const uploadSchema = z

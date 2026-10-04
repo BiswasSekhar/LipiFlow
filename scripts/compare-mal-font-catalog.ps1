@@ -118,7 +118,7 @@ foreach ($file in $fontFiles) {
   } elseif ($file.FullName -match '(?i)[\\/]Unicode Fonts[\\/]|[\\/]public[\\/]fonts[\\/]|[\\/]fixtures[\\/]') {
     'Unicode'
   } else {
-    'Unverified'
+    'Other'
   }
   $local.Add([pscustomobject]@{
     Path = $file.FullName
@@ -144,7 +144,7 @@ foreach ($source in $sources) {
   $sourceStyleKey = Normalize-Style $source.variant
   $sourceFullKey = Normalize-Name ($source.family + ' ' + $source.variant)
   $possible = @($local | Where-Object {
-    $encodingMatches = $source.encoding -eq 'Unverified' -or $_.Encoding -eq 'Unverified' -or $_.Encoding -eq $source.encoding
+    $encodingMatches = $source.encoding -eq 'Other' -or $_.Encoding -eq 'Other' -or $_.Encoding -eq $source.encoding
     $encodingMatches -and (
       ($sourceNameKey -and (Normalize-Name $_.FileName) -eq $sourceNameKey) -or
       ($sourceNameKey -and (Normalize-Name $_.FullName) -eq $sourceNameKey) -or

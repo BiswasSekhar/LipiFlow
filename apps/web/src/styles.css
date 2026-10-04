@@ -1969,6 +1969,7 @@ input[type='range'] {
 .family-row-footer {
   padding-top: 8px;
   border-top: 1px solid var(--line);
+  flex-wrap: wrap;
 }
 .family-variants,
 .font-style-list,
@@ -2060,6 +2061,21 @@ input[type='range'] {
   border-radius: 6px;
   background: var(--surface);
   resize: vertical;
+}
+.font-preview-hint {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.font-download-status {
+  margin: -8px 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.font-map-note {
+  max-width: 230px;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 .font-preview-controls input[type='range'],
 .upload-preview-tools input[type='range'] {

@@ -104,6 +104,9 @@ test('R2 catalogue assets preview, download and pause after a copyright report',
 }: {
   page: Page;
 }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('lipiflow.preferences.v1', JSON.stringify({ provider: 'mozhi' }));
+  });
   await page.goto('/');
   await page.getByLabel('Malayalam editor', { exact: true }).fill('മലയാളം');
   await page.getByRole('button', { name: 'Fonts', exact: true }).click();
@@ -112,11 +115,11 @@ test('R2 catalogue assets preview, download and pause after a copyright report',
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Details' }).click();
   await expect(page.getByRole('heading', { name: family })).toBeVisible();
-  await page.getByLabel('Type preview text').fill('മലയാളം');
-  await expect(page.locator('.font-detail-specimen')).toHaveText('മലയാളം');
+  await page.getByLabel('Type Manglish preview text').fill('manassil ninnu thanne');
+  await expect(page.locator('.font-detail-specimen')).toContainText('മന');
   const download = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Download Regular' }).click();
-  expect((await download).suggestedFilename()).toMatch(/\.ttf$/);
+  await page.getByRole('button', { name: 'Download family (.zip)' }).click();
+  expect((await download).suggestedFilename()).toMatch(/\.zip$/);
 
   await page.getByRole('button', { name: 'Report copyright' }).click();
   await page.getByLabel('Your name').fill('Test owner');

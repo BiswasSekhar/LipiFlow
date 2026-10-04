@@ -81,10 +81,10 @@ foreach ($pageUrl in $pages) {
   $categoryCode = if ($categoryMatch.Success) { $categoryMatch.Groups[1].Value } else { '' }
   $category, $encoding = switch ($categoryCode) {
     '180' { 'Unicode'; 'Unicode'; break }
-    '181' { 'General'; 'Unverified'; break }
+    '181' { 'General'; 'Other'; break }
     '182' { 'ML'; 'ML-TT'; break }
     '183' { 'FML'; 'FML'; break }
-    default { "Other ($categoryCode)"; 'Unverified' }
+    default { "Other ($categoryCode)"; 'Other' }
   }
   $family = Get-DetailValue $plain 'Font Family' @('Font Subfamily','Font Identifier','Full Name','Version','Postscript Name','Copyright','How to install')
   $variant = Get-DetailValue $plain 'Font Subfamily' @('Font Identifier','Full Name','Version','Postscript Name','Copyright','How to install')

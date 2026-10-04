@@ -136,8 +136,9 @@ let files = (await walk(root)).sort((a, b) => a.localeCompare(b));
 const only = option('--only');
 if (only) {
   const wanted = only.split(/[\\/]/).join('/').toLocaleLowerCase('en-US');
-  files = files.filter((file) =>
-    path.relative(root, file).split(path.sep).join('/').toLocaleLowerCase('en-US') === wanted,
+  files = files.filter(
+    (file) =>
+      path.relative(root, file).split(path.sep).join('/').toLocaleLowerCase('en-US') === wanted,
   );
   if (!files.length) throw new Error(`No font matched --only ${only}.`);
 }
@@ -155,9 +156,7 @@ for (const absolute of files) {
     .slice(0, 24)}`;
   const extension = path.extname(absolute).toLowerCase();
   const category = relativePath.includes('/') ? relativePath.split('/')[0] : 'Downloaded';
-  const encoding = ['FML', 'ML-TT', 'Unicode'].includes(info?.Encoding)
-    ? info.Encoding
-    : 'Unverified';
+  const encoding = ['FML', 'ML-TT', 'Unicode'].includes(info?.Encoding) ? info.Encoding : 'Other';
   const asset = {
     id,
     relativePath,

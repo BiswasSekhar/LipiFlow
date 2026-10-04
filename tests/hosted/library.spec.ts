@@ -223,13 +223,13 @@ test('browser upload → separate admin review → live font preview → user re
   await expect(row.locator('.catalogue-specimen')).toHaveText('കേരളം');
   await row.getByRole('button', { name: 'Details' }).click();
   await expect(page.getByText('Author uploaded', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Download Regular' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download family (.zip)' })).toBeVisible();
+  await page.getByLabel('Type Manglish preview text').fill('keralam');
   await expect(page.locator('.font-detail-specimen')).toHaveText('കേരളം');
-  await page.getByLabel('Preview text').fill('മലയാളം');
-  await expect(page.locator('.font-detail-specimen')).toHaveText('മലയാളം');
   const fontDownload = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Download Regular' }).click();
-  expect((await fontDownload).suggestedFilename()).toMatch(/\.ttf$/);
+  await page.getByRole('button', { name: 'Download family (.zip)' }).click();
+  expect((await fontDownload).suggestedFilename()).toMatch(/\.zip$/);
+  await page.getByRole('button', { name: '← All font families' }).click();
   await page.getByRole('button', { name: 'Fonts', exact: true }).click();
   await page.getByLabel('Search fonts and families').fill(name);
   await page

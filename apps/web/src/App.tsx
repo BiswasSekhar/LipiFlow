@@ -3,7 +3,12 @@ import { fonts } from './catalogue';
 import { Fonts } from './components/Fonts';
 import { AccountPanel } from './components/Account';
 import { hostedEdition, useLibrary } from './hosted';
-import type { ExternalFontSource, LocalFontAsset, PublishedFont } from '@lipiflow/library';
+import {
+  fontEncodingLabel,
+  type ExternalFontSource,
+  type LocalFontAsset,
+  type PublishedFont,
+} from '@lipiflow/library';
 import { Icon } from './components/Icon';
 import { Settings } from './components/Settings';
 import { useTransliteration } from './engine/useTransliteration';
@@ -105,19 +110,19 @@ export default function App() {
       ? fonts.map((font) => ({ id: font.id, name: font.name, detail: `Unicode · ${font.variant}` }))
       : []),
     ...library.library
-      .filter((font) => font.encoding === outputMode)
+      .filter((font) => fontEncodingLabel(font.encoding) === outputMode)
       .map((font) => ({
         id: `published:${font.id}`,
         name: font.family || font.name,
-        detail: `${font.encoding} · ${font.variant}${font.encoding === 'Unicode' ? '' : ' · map not verified'}`,
+        detail: `${font.variant} · user font`,
         disabled: font.encoding !== 'Unicode',
       })),
     ...library.fontAssets
-      .filter((font) => font.encoding === outputMode)
+      .filter((font) => fontEncodingLabel(font.encoding) === outputMode)
       .map((font) => ({
         id: `asset:${font.id}`,
         name: font.family || font.name,
-        detail: `${font.encoding} · ${font.variant || font.sourceCategory}${font.mapVersion ? ' · map verified' : ' · map not verified'}`,
+        detail: `${font.sourceCategory} · ${font.variant || 'Regular'}${font.mapVersion ? ' · verified' : ''}`,
         disabled: font.encoding !== 'Unicode' && !font.mapVersion,
       })),
     ...(isLegacy && localFonts.loaded[outputMode]
@@ -131,9 +136,9 @@ export default function App() {
       : []),
   ];
   const selectedFontChoice =
-    assetFont?.font.encoding === outputMode
+    assetFont && fontEncodingLabel(assetFont.font.encoding) === outputMode
       ? `asset:${assetFont.font.id}`
-      : sourceFont?.font.encoding === outputMode
+      : sourceFont && fontEncodingLabel(sourceFont.font.encoding) === outputMode
         ? `source:${sourceFont.font.sourceId}`
         : cloudFont?.font.encoding === outputMode
           ? `published:${cloudFont.font.id}`
@@ -443,6 +448,11 @@ export default function App() {
                     onChoose={(id) => void selectTypeFont(id)}
                   />
                   {isLegacy ? (
+                    <p className="font-map-note muted small">
+                      Only fonts with a verified {outputMode} map can be selected.
+                    </p>
+                  ) : null}
+                  {isLegacy ? (
                     <>
                       <label htmlFor="legacy-font" className="button secondary font-picker">
                         {localFonts.loading ? 'Opening…' : 'Open from device'}
@@ -641,6 +651,9 @@ export default function App() {
             store={library}
             sample={unicodeText}
             encodedSample={encoder.current ? encoder.output : ''}
+            previewSource={documentModel.active?.roman ?? ''}
+            provider={prefs.provider}
+            online={offline.online}
           />
         ) : view === 'account' ? (
           <AccountPanel
