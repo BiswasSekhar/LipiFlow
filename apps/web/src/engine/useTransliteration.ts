@@ -1,7 +1,41 @@
 import { useEffect, useRef, useState } from 'react';
-import { convertGoogle, type GoogleSegment } from './google';
+import { convertGoogle, splitGoogleInput, type GoogleSegment } from './google';
 import { useEngine } from './useEngine';
 import type { Preferences } from '../preferences';
+
+function stablePreview(source: string, previous: GoogleSegment[]) {
+  let next: GoogleSegment[];
+  try {
+    next = splitGoogleInput(source);
+  } catch {
+    return source;
+  }
+
+  let prefix = 0;
+  while (
+    prefix < previous.length &&
+    prefix < next.length &&
+    previous[prefix].source === next[prefix].source
+  )
+    prefix++;
+
+  let suffix = 0;
+  while (
+    suffix < previous.length - prefix &&
+    suffix < next.length - prefix &&
+    previous[previous.length - suffix - 1].source === next[next.length - suffix - 1].source
+  )
+    suffix++;
+
+  return next
+    .map((segment, index) => {
+      if (index < prefix) return previous[index].text;
+      if (index >= next.length - suffix)
+        return previous[previous.length - (next.length - index)].text;
+      return segment.source;
+    })
+    .join('');
+}
 
 export function useTransliteration(
   source: string,
@@ -50,6 +84,15 @@ export function useTransliteration(
 
   const current =
     !!result && result.source === source && result.attempt === attempt && !composing && !error;
+  const preview = googleEnabled
+    ? result?.attempt === attempt && !composing
+      ? result.source === source
+        ? result.segments.map((segment) => segment.text).join('')
+        : stablePreview(source, result.segments)
+      : source
+    : local.current
+      ? local.output
+      : source;
   const chooseCandidate = (index: number, text: string) => {
     if (!googleEnabled || !current) return;
     setResult((previous) => {
@@ -75,6 +118,7 @@ export function useTransliteration(
           },
         }
       : local),
+    preview,
     error: googleEnabled ? error : '',
     googleEnabled,
     offlineFallback: provider === 'google' && !online,

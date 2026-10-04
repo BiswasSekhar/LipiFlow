@@ -19,6 +19,7 @@ test('background encoding preserves a native selection in the Unicode-rendered e
     };
   });
   await page.goto('/');
+  await page.getByLabel('Typing method', { exact: true }).selectOption('mozhi');
   const editor = page.getByRole('textbox', { name: 'Malayalam editor' });
   await editor.fill('കേരളം');
   await expect(editor).toHaveValue('കേരളം');
@@ -43,6 +44,7 @@ test('one editable textbox transliterates while typing and keeps the caret, sele
   browserName,
 }) => {
   await page.goto('/');
+  await page.getByLabel('Typing method', { exact: true }).selectOption('mozhi');
   const editor = page.getByRole('textbox', { name: 'Malayalam editor' });
   await expect(page.getByRole('textbox')).toHaveCount(1);
   await expect(page.getByRole('tab')).toHaveCount(0);
@@ -78,6 +80,7 @@ test('one editor exports each selected encoding and edits the real legacy font p
   browserName,
 }) => {
   await page.goto('/');
+  await page.getByLabel('Typing method', { exact: true }).selectOption('mozhi');
   const editor = page.getByRole('textbox', { name: 'Malayalam editor' });
   await editor.fill('കേരളം');
   for (const mode of ['Unicode', 'FML', 'ML-TT']) {

@@ -4,41 +4,77 @@ import { expect, test } from '@playwright/test';
 // Playwright's page routing, particularly in WebKit. Real PWA coverage is separate.
 test.use({ serviceWorkers: 'block' });
 
-test('Google phrase suggestions, protected text, UTF-8 export and provider persistence', async ({
+test('Google word suggestions, protected text, UTF-8 export and provider persistence', async ({
   page,
 }) => {
   const requests: string[] = [];
   await page.route('https://inputtools.google.com/request?**', async (route) => {
-    const phrase = new URL(route.request().url()).searchParams.get('text')!;
-    requests.push(phrase);
-    await route.fulfill({ json: ['SUCCESS', [[phrase, ['എന്റെ പേര്', 'എന്റെ പേരു']]]] });
+    const word = new URL(route.request().url()).searchParams.get('text')!;
+    requests.push(word);
+    const candidates = word === 'ente' ? ['എന്റെ', 'എൻ്റെ'] : ['പേര്', 'പേരും'];
+    await route.fulfill({ json: ['SUCCESS', [[word, candidates]]] });
   });
   await page.goto('/');
   const source = page.getByLabel('Malayalam editor', { exact: true });
   const output = page.getByLabel('Malayalam editor', { exact: true });
-  await page.getByLabel('Typing method', { exact: true }).selectOption('google');
   await source.fill('ente peru!\n{LipiFlow} 😀 123');
   await expect(output).toHaveValue('എന്റെ പേര്!\nLipiFlow 😀 123');
-  expect(requests).toEqual(['ente peru']);
+  expect(requests).toHaveLength(2);
+  expect(requests).toContain('ente');
+  expect(requests).toContain('peru');
   await expect(page.getByLabel('Typing method', { exact: true })).toHaveValue('google');
   await page.getByText('Choose another spelling · Google suggestions').click();
-  await page.getByLabel('Spelling for ente peru').selectOption('എന്റെ പേരു');
-  await expect(output).toHaveValue('എന്റെ പേരു!\nLipiFlow 😀 123');
+  await page.getByLabel('Spelling for ente').selectOption('എൻ്റെ');
+  await expect(output).toHaveValue('എൻ്റെ പേര്!\nLipiFlow 😀 123');
   await page.getByRole('button', { name: 'FML', exact: true }).click();
-  await expect(output).toHaveValue('എന്റെ പേരു!\nLipiFlow 😀 123');
+  await expect(output).toHaveValue('എൻ്റെ പേര്!\nLipiFlow 😀 123');
   await expect(page.getByRole('button', { name: 'Copy FML', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Unicode', exact: true }).click();
-  await expect(output).toHaveValue('എന്റെ പേരു!\nLipiFlow 😀 123');
-  await expect(source).toHaveValue('എന്റെ പേരു!\nLipiFlow 😀 123');
+  await expect(output).toHaveValue('എൻ്റെ പേര്!\nLipiFlow 😀 123');
+  await expect(source).toHaveValue('എൻ്റെ പേര്!\nLipiFlow 😀 123');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download .txt' }).click();
   const { readFile } = await import('node:fs/promises');
   expect(await readFile((await (await downloadPromise).path())!, 'utf8')).toBe(
-    'എന്റെ പേരു!\nLipiFlow 😀 123',
+    'എൻ്റെ പേര്!\nLipiFlow 😀 123',
   );
   await page.reload();
   await expect(page.getByLabel('Typing method', { exact: true })).toHaveValue('google');
   await expect(source).toHaveValue('');
+});
+
+test('keeps an already converted word visible while the next word is converting', async ({
+  page,
+}) => {
+  const requests: string[] = [];
+  let releaseSecond!: () => void;
+  let secondStarted!: () => void;
+  const secondRequest = new Promise<void>((resolve) => {
+    secondStarted = resolve;
+  });
+  const secondResponse = new Promise<void>((resolve) => {
+    releaseSecond = resolve;
+  });
+  await page.route('https://inputtools.google.com/request?**', async (route) => {
+    const word = new URL(route.request().url()).searchParams.get('text')!;
+    requests.push(word);
+    if (word === 'peru') {
+      secondStarted();
+      await secondResponse;
+    }
+    const output = word === 'ente' ? 'എന്റെ' : 'പേര്';
+    await route.fulfill({ json: ['SUCCESS', [[word, [output]]]] });
+  });
+  await page.goto('/');
+  const editor = page.getByLabel('Malayalam editor', { exact: true });
+  await editor.fill('ente');
+  await expect(editor).toHaveValue('എന്റെ');
+  await editor.pressSequentially(' peru', { delay: 60 });
+  await secondRequest;
+  await expect(editor).toHaveValue('എന്റെ peru');
+  expect(requests).toEqual(['ente', 'peru']);
+  releaseSecond();
+  await expect(editor).toHaveValue('എന്റെ പേര്');
 });
 
 test('Google rejects stale replies, pauses composition, and recovers from failures', async ({
@@ -58,7 +94,6 @@ test('Google rejects stale replies, pauses composition, and recovers from failur
       .catch(() => {});
   });
   await page.goto('/');
-  await page.getByLabel('Typing method', { exact: true }).selectOption('google');
   const source = page.getByLabel('Malayalam editor', { exact: true });
   const output = page.getByLabel('Malayalam editor', { exact: true });
   await source.fill('old');
@@ -97,7 +132,6 @@ test('Google selection uses a labelled local fallback offline without requests',
     await route.abort();
   });
   await page.goto('/');
-  await page.getByLabel('Typing method', { exact: true }).selectOption('google');
   // Dispatch browser connectivity state on all engines, including WebKit.
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });

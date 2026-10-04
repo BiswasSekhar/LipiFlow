@@ -22,6 +22,12 @@ it('discards malformed preferences and unknown font ids', () => {
   );
   expect(readPreferences(storage)).toEqual(defaultPreferences);
 });
+it('defaults to Google online while preserving an explicit Mozhi choice', () => {
+  const storage = store();
+  expect(readPreferences(storage).provider).toBe('google');
+  storage.setItem(keys.preferences, JSON.stringify({ provider: 'mozhi' }));
+  expect(readPreferences(storage).provider).toBe('mozhi');
+});
 it('stores drafts only with explicit opt-in and deletes them when disabled', () => {
   const storage = store();
   persistPreferences(defaultPreferences, 'private', storage);

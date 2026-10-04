@@ -4,7 +4,6 @@ import { Fonts } from './components/Fonts';
 import { AccountPanel } from './components/Account';
 import { hostedEdition, useLibrary } from './hosted';
 import type { PublishedFont } from '@lipiflow/library';
-import { Guide } from './components/Guide';
 import { Icon } from './components/Icon';
 import { Settings } from './components/Settings';
 import { useTransliteration } from './engine/useTransliteration';
@@ -46,7 +45,6 @@ export default function App() {
   const [outputMode, setOutputMode] = useState<OutputMode>('Unicode');
   const [prefs, setPrefs] = useState(initialPrefs);
   const [composing, setComposing] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [storageError, setStorageError] = useState(false);
   const [manualCopy, setManualCopy] = useState(false);
@@ -59,10 +57,7 @@ export default function App() {
     prefs.provider,
     offline.online,
   );
-  const unicodeText = renderDocument(
-    documentModel,
-    engine.current ? engine.output : (documentModel.active?.roman ?? ''),
-  );
+  const unicodeText = renderDocument(documentModel, engine.preview);
   const isLegacy = outputMode !== 'Unicode';
   const encoder = useEngine(
     unicodeText,
@@ -284,24 +279,11 @@ export default function App() {
         ) : null}
         {view === 'type' ? (
           <>
-            <div className="page-heading type-heading">
-              <div>
-                <h1>Write Malayalam</h1>
-              </div>
-              <button
-                className="button secondary guide-trigger"
-                onClick={() => setGuideOpen((value) => !value)}
-                aria-expanded={guideOpen}
-              >
-                <Icon name="book" />
-                {engine.googleEnabled ? 'Mozhi typing guide' : 'Typing guide'}
-              </button>
-            </div>
             <div className="editor-controls">
               <div className="typing-method">
-                <label htmlFor="typing-method">Typing method</label>
                 <select
                   id="typing-method"
+                  aria-label="Typing method"
                   value={prefs.provider}
                   onChange={(event) =>
                     changePreferences({ provider: event.target.value as Preferences['provider'] })
@@ -313,54 +295,6 @@ export default function App() {
                 {engine.offlineFallback ? (
                   <p className="muted small">Offline · using Mozhi</p>
                 ) : null}
-              </div>
-              <div className={`preview-choice ${isLegacy ? 'legacy-choice' : ''}`}>
-                {isLegacy ? (
-                  <>
-                    <span className="control-label">Font</span>
-                    <label htmlFor="legacy-font" className="button secondary font-picker">
-                      {localFonts.loaded[outputMode] ? legacyFont?.family : 'Choose font'}
-                    </label>
-                    <input
-                      id="legacy-font"
-                      className="sr-only"
-                      type="file"
-                      accept=".ttf"
-                      disabled={localFonts.loading}
-                      aria-label="Load matching legacy font"
-                      onChange={(event) => {
-                        void localFonts.load(event.target.files?.[0], outputMode);
-                        event.target.value = '';
-                      }}
-                    />
-                    {localFonts.notice ? (
-                      <p className="small" role="status">
-                        {localFonts.notice}
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <label htmlFor="preview-font">Font</label>
-                    <select
-                      id="preview-font"
-                      aria-label="Preview font"
-                      value={
-                        cloudFont?.font.encoding === 'Unicode' ? cloudFont.font.id : prefs.fontId
-                      }
-                      onChange={(event) => changePreferences({ fontId: event.target.value })}
-                    >
-                      {cloudFont?.font.encoding === 'Unicode' ? (
-                        <option value={cloudFont.font.id}>{cloudFont.font.name}</option>
-                      ) : null}
-                      {fonts.map((font) => (
-                        <option key={font.id} value={font.id}>
-                          {font.name}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                )}
               </div>
             </div>
             <section
@@ -383,6 +317,54 @@ export default function App() {
                       {mode}
                     </button>
                   ))}
+                </div>
+                <div className={`preview-choice ${isLegacy ? 'legacy-choice' : ''}`}>
+                  {isLegacy ? (
+                    <>
+                      <span className="control-label">Font</span>
+                      <label htmlFor="legacy-font" className="button secondary font-picker">
+                        {localFonts.loaded[outputMode] ? legacyFont?.family : 'Choose font'}
+                      </label>
+                      <input
+                        id="legacy-font"
+                        className="sr-only"
+                        type="file"
+                        accept=".ttf"
+                        disabled={localFonts.loading}
+                        aria-label="Load matching legacy font"
+                        onChange={(event) => {
+                          void localFonts.load(event.target.files?.[0], outputMode);
+                          event.target.value = '';
+                        }}
+                      />
+                      {localFonts.notice ? (
+                        <p className="small" role="status">
+                          {localFonts.notice}
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <label htmlFor="preview-font">Font</label>
+                      <select
+                        id="preview-font"
+                        aria-label="Preview font"
+                        value={
+                          cloudFont?.font.encoding === 'Unicode' ? cloudFont.font.id : prefs.fontId
+                        }
+                        onChange={(event) => changePreferences({ fontId: event.target.value })}
+                      >
+                        {cloudFont?.font.encoding === 'Unicode' ? (
+                          <option value={cloudFont.font.id}>{cloudFont.font.name}</option>
+                        ) : null}
+                        {fonts.map((font) => (
+                          <option key={font.id} value={font.id}>
+                            {font.name}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="editor-panel output-panel inline-panel">
@@ -552,7 +534,6 @@ export default function App() {
                 your device’s Copy action.
               </p>
             ) : null}
-            {guideOpen ? <Guide onClose={() => setGuideOpen(false)} /> : null}
           </>
         ) : view === 'fonts' ? (
           <Fonts

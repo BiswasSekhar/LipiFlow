@@ -5,7 +5,9 @@ export type GoogleSegment = { source: string; text: string; candidates: string[]
 
 export function splitGoogleInput(source: string): GoogleSegment[] {
   const segments: GoogleSegment[] = [];
-  for (const match of source.matchAll(/\{[^}]*\}?|\\[A-Za-z]+|[A-Za-z]+(?: [A-Za-z]+)*|[\s\S]/g)) {
+  // Translate one word at a time so adding a later word cannot change a word
+  // the user has already typed. Keep every separator as its own literal part.
+  for (const match of source.matchAll(/\{[^}]*\}?|\\[A-Za-z]+|[A-Za-z]+|[\s\S]/g)) {
     const value = match[0];
     if (value.startsWith('{')) {
       segments.push({
@@ -16,20 +18,9 @@ export function splitGoogleInput(source: string): GoogleSegment[] {
     } else if (/^\\[A-Za-z]/.test(value)) {
       segments.push({ source: value, text: value.slice(1), candidates: [] });
     } else if (/^[A-Za-z]/.test(value)) {
-      // Bound each URL while retaining phrase context and every separator.
-      const words = value.split(' ');
-      let phrase = '';
-      for (const word of words) {
-        if (word.length > 160)
-          throw new Error('A word is too long for Google. Use Mozhi for this text.');
-        if (phrase && phrase.length + word.length + 1 > 160) {
-          segments.push({ source: phrase, text: phrase, candidates: ['pending'] });
-          segments.push({ source: ' ', text: ' ', candidates: [] });
-          phrase = '';
-        }
-        phrase += `${phrase ? ' ' : ''}${word}`;
-      }
-      segments.push({ source: phrase, text: phrase, candidates: ['pending'] });
+      if (value.length > 160)
+        throw new Error('A word is too long for Google. Use Mozhi for this text.');
+      segments.push({ source: value, text: value, candidates: ['pending'] });
     } else {
       segments.push({ source: value, text: value, candidates: [] });
     }

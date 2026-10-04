@@ -7,7 +7,7 @@ export type Preferences = {
   rememberDraft: boolean;
 };
 export const defaultPreferences: Preferences = {
-  provider: 'mozhi',
+  provider: 'google',
   theme: 'system',
   fontId: fonts[0].id,
   size: 36,
@@ -23,7 +23,7 @@ export function readPreferences(storage?: Pick<Storage, 'getItem'>): Preferences
   try {
     const p = JSON.parse((storage ?? window.localStorage).getItem(keys.preferences) ?? '{}');
     return {
-      provider: p.provider === 'google' ? 'google' : 'mozhi',
+      provider: p.provider === 'mozhi' ? 'mozhi' : 'google',
       theme: ['system', 'light', 'dark'].includes(p.theme) ? p.theme : 'system',
       fontId: fonts.some((font) => font.id === p.fontId) ? p.fontId : defaultPreferences.fontId,
       size: [28, 36, 44].includes(p.size) ? p.size : 36,

@@ -2,18 +2,21 @@ import { expect, it, vi } from 'vitest';
 import { convertGoogle, parseGoogleCandidates, splitGoogleInput } from './google';
 
 it('reads the independently observed Google sample and rejects failed or mismatched replies', () => {
-  expect(
-    parseGoogleCandidates(['SUCCESS', [['ente peru', ['എന്റെ പേര്', 'എന്റെ പേരു']]]], 'ente peru'),
-  ).toEqual(['എന്റെ പേര്', 'എന്റെ പേരു']);
+  expect(parseGoogleCandidates(['SUCCESS', [['ente', ['എന്റെ', 'എൻ്റെ']]]], 'ente')).toEqual([
+    'എന്റെ',
+    'എൻ്റെ',
+  ]);
   expect(() => parseGoogleCandidates(['ERROR', []], 'ente')).toThrow();
   expect(() => parseGoogleCandidates(['SUCCESS', [['different', ['മലയാളം']]]], 'ente')).toThrow();
   expect(() => parseGoogleCandidates(['SUCCESS', [['ente', [null]]]], 'ente')).toThrow();
 });
 
 it('preserves literal English, existing scripts, digits, emoji and all separators', async () => {
-  const request = vi.fn(
-    async () => new Response(JSON.stringify(['SUCCESS', [['ente peru', ['എന്റെ പേര്']]]])),
-  );
+  const request = vi.fn(async (input: RequestInfo | URL) => {
+    const word = new URL(String(input)).searchParams.get('text')!;
+    const text = word === 'ente' ? 'എന്റെ' : 'പേര്';
+    return new Response(JSON.stringify(['SUCCESS', [[word, [text]]]]));
+  });
   const result = await convertGoogle(
     'ente peru!\n{hello world} \\LipiFlow മലയാളം 中文 😀 123\t  ',
     new AbortController().signal,
@@ -23,7 +26,7 @@ it('preserves literal English, existing scripts, digits, emoji and all separator
   expect(result.map((segment) => segment.text).join('')).toBe(
     'എന്റെ പേര്!\nhello world LipiFlow മലയാളം 中文 😀 123\t  ',
   );
-  expect(request).toHaveBeenCalledTimes(1);
+  expect(request).toHaveBeenCalledTimes(2);
   const [url, options] = request.mock.calls[0] as unknown as [URL, RequestInit];
   expect(url.searchParams.get('itc')).toBe('ml-t-i0-und');
   expect(options).toMatchObject({
@@ -33,7 +36,7 @@ it('preserves literal English, existing scripts, digits, emoji and all separator
   });
 });
 
-it('sends no requests for empty or literal-only text and caches repeated phrases only in memory', async () => {
+it('sends no requests for empty or literal-only text and caches repeated words only in memory', async () => {
   const request = vi.fn(
     async () => new Response(JSON.stringify(['SUCCESS', [['amma', ['അമ്മ']]]])),
   );
@@ -46,7 +49,7 @@ it('sends no requests for empty or literal-only text and caches repeated phrases
   expect(request).toHaveBeenCalledTimes(1);
 });
 
-it('bounds long requests without losing separators and rejects unusably long words', () => {
+it('translates and caches one word at a time without losing separators', () => {
   const source = 'ente peru '.repeat(100).trim();
   const segments = splitGoogleInput(source);
   expect(segments.map((segment) => segment.source).join('')).toBe(source);

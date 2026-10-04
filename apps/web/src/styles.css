@@ -236,16 +236,6 @@ main {
 .page-heading p {
   margin-top: 6px;
 }
-.type-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  gap: 16px;
-}
-.type-heading p {
-  font-size: 13px;
-}
 .button {
   display: inline-flex;
   align-items: center;
@@ -932,21 +922,6 @@ input[type='checkbox'] {
   h1 {
     font-size: 23px;
   }
-  .type-heading {
-    margin-bottom: 20px;
-    gap: 10px;
-  }
-  .type-heading .button {
-    font-size: 11px;
-    padding: 8px 10px;
-  }
-  .guide-trigger svg {
-    width: 16px;
-    height: 16px;
-  }
-  .type-heading p {
-    font-size: 11px;
-  }
   .editor-controls {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -1222,9 +1197,6 @@ h1 {
   font-size: 25px;
   font-weight: 600;
   letter-spacing: -0.65px;
-}
-.type-heading {
-  align-items: center;
 }
 .editor-controls {
   display: flex;
@@ -1658,13 +1630,6 @@ select {
   .page-heading {
     margin-bottom: 20px;
   }
-  .guide-trigger {
-    min-height: 34px;
-    padding: 6px 10px;
-  }
-  .guide-trigger svg {
-    display: none;
-  }
   .editor-controls {
     display: grid;
     grid-template-columns: 1fr;
@@ -1791,7 +1756,43 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.editor-controls {
+  margin-bottom: 16px;
+}
+.editor-controls .typing-method {
+  flex: 0 1 380px;
+}
+.workspace-toolbar {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.workspace-toolbar .preview-choice {
+  flex: 0 1 340px;
+  min-width: 220px;
+  flex-wrap: nowrap;
+  margin-left: auto;
+}
+.workspace-toolbar .preview-choice select {
+  min-width: 0;
+  max-width: 230px;
+}
 @media (max-width: 700px) {
+  .editor-controls .typing-method {
+    flex-basis: 100%;
+  }
+  .workspace-toolbar {
+    align-items: flex-start;
+  }
+  .workspace-toolbar .preview-choice {
+    flex: 1 1 220px;
+    min-width: 0;
+    margin-left: 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .workspace-toolbar .preview-choice select {
+    max-width: none;
+  }
   .editor-panel textarea {
     height: max(260px, calc(100dvh - 550px));
   }

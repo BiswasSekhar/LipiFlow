@@ -4,10 +4,11 @@ import { artifactServer } from './artifact-server';
 
 async function open(page: import('@playwright/test').Page, url = '/') {
   await page.goto(url);
+  await page.getByLabel('Typing method', { exact: true }).selectOption('mozhi');
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
 }
 
-test('typing, fonts, guide, UTF-8 export and navigation', async ({ page }) => {
+test('typing, fonts, UTF-8 export and navigation', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await open(page);
@@ -22,13 +23,10 @@ test('typing, fonts, guide, UTF-8 export and navigation', async ({ page }) => {
   expect(download.suggestedFilename()).toBe('lipiflow-malayalam.txt');
   expect(await readFile((await download.path())!, 'utf8')).toBe('നമസ്കാരം!\nLipiFlow 😀');
   await page.getByLabel('Preview font').selectOption('noto-serif-malayalam');
+  await expect(page.locator('.workspace-toolbar').getByLabel('Preview font')).toBeVisible();
   await expect(output).toHaveCSS('font-family', /Noto Serif Malayalam/);
   await expect(output).toHaveValue('നമസ്കാരം!\nLipiFlow 😀');
-  await page.getByRole('button', { name: 'Typing guide' }).click();
-  await page.getByLabel('Find a letter, spelling or example').fill('chillu');
-  await expect(page.getByText('Word-ending chillus')).toBeVisible();
-  await expect(page.getByText('Velar consonants', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Close typing guide' }).click();
+  await expect(page.getByRole('button', { name: 'Typing guide' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Fonts', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Noto Sans Malayalam' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Noto Serif Malayalam' })).toBeVisible();
@@ -274,6 +272,7 @@ test('local font files load without upload and show an explicitly unmapped chara
 test('WASM startup failure preserves source and offers recovery', async ({ page }) => {
   await page.route('**/*.wasm', (route) => route.abort());
   await page.goto('/');
+  await page.getByLabel('Typing method', { exact: true }).selectOption('mozhi');
   await expect(page.getByRole('button', { name: 'Retry conversion' })).toBeVisible();
   await page.getByLabel('Malayalam editor', { exact: true }).fill('njaan');
   await expect(page.getByRole('button', { name: 'Copy Malayalam' })).toBeDisabled();
