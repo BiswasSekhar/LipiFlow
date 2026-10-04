@@ -22,7 +22,7 @@ test('Google word suggestions, protected text, UTF-8 export and provider persist
   expect(requests).toHaveLength(2);
   expect(requests).toContain('ente');
   expect(requests).toContain('peru');
-  await expect(page.getByLabel('Typing method', { exact: true })).toHaveValue('google');
+  await expect(page.getByText('Google', { exact: true })).toBeVisible();
   await page.getByText('Choose another spelling · Google suggestions').click();
   await page.getByLabel('Spelling for ente').selectOption('എൻ്റെ');
   await expect(output).toHaveValue('എൻ്റെ പേര്!\nLipiFlow 😀 123');
@@ -39,7 +39,7 @@ test('Google word suggestions, protected text, UTF-8 export and provider persist
     'എൻ്റെ പേര്!\nLipiFlow 😀 123',
   );
   await page.reload();
-  await expect(page.getByLabel('Typing method', { exact: true })).toHaveValue('google');
+  await expect(page.getByText('Google', { exact: true })).toBeVisible();
   await expect(source).toHaveValue('');
 });
 
@@ -118,9 +118,7 @@ test('Google rejects stale replies, pauses composition, and recovers from failur
   fail = false;
   await page.getByRole('button', { name: 'Retry conversion' }).click();
   await expect(page.getByRole('button', { name: 'Copy Malayalam' })).toBeEnabled();
-  await page.getByLabel('Typing method', { exact: true }).selectOption('mozhi');
-  await source.fill('amma');
-  await expect(output).toHaveValue('അമ്മ');
+  await expect(page.getByText('Google', { exact: true })).toBeVisible();
 });
 
 test('Google selection uses a labelled local fallback offline without requests', async ({
@@ -139,7 +137,7 @@ test('Google selection uses a labelled local fallback offline without requests',
   });
   await page.getByLabel('Malayalam editor', { exact: true }).fill('amma');
   await expect(page.getByLabel('Malayalam editor', { exact: true })).toHaveValue('അമ്മ');
-  await expect(page.getByText('Offline · using Mozhi')).toBeVisible();
+  await expect(page.getByText('Mozhi 2', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copy Malayalam' })).toBeEnabled();
   expect(requests).toBe(0);
 });

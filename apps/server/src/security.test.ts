@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { localAllowed, requireOrigin } from './index';
-import { inspectFont, reportSchema, sourceFontReportSchema, uploadSchema } from '@lipiflow/library';
+import {
+  fontAssetReportSchema,
+  inspectFont,
+  reportSchema,
+  sourceFontReportSchema,
+  uploadSchema,
+} from '@lipiflow/library';
 test('local sign-in requires the local flag and loopback HTTP', () => {
   assert.equal(localAllowed({ LIPIFLOW_LOCAL: '1' }, new URL('http://127.0.0.1:8787')), true);
   for (const url of ['https://example.com', 'http://example.com', 'https://127.0.0.1'])
@@ -105,6 +111,25 @@ test('source copyright reports require a valid source id and evidence', () => {
   );
   assert.equal(
     sourceFontReportSchema.safeParse({ ...report, evidenceUrl: 'javascript:alert(1)' }).success,
+    false,
+  );
+});
+test('downloaded font reports require a local asset id and ownership evidence', () => {
+  const report = {
+    assetId: 'local-font-0123456789abcdef01234567',
+    name: 'Font owner',
+    email: 'owner@example.com',
+    details: 'I own this font and did not grant distribution through this listing.',
+    evidenceUrl: 'https://example.com/ownership',
+    goodFaith: true,
+  };
+  assert.equal(fontAssetReportSchema.safeParse(report).success, true);
+  assert.equal(
+    fontAssetReportSchema.safeParse({ ...report, assetId: 'font-../../admin' }).success,
+    false,
+  );
+  assert.equal(
+    fontAssetReportSchema.safeParse({ ...report, evidenceUrl: 'javascript:alert(1)' }).success,
     false,
   );
 });

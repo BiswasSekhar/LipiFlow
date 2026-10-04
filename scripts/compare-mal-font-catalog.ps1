@@ -1,5 +1,5 @@
 param(
-  [string]$LocalFonts = 'C:\Users\biswa\Downloads\Malayalam Fonts',
+  [string]$LocalFonts = (Join-Path $PSScriptRoot '..\font-files'),
   [string]$SourceCsv = (Join-Path $PSScriptRoot '..\data\imports\malayalamfont.com-font-catalog.csv')
 )
 

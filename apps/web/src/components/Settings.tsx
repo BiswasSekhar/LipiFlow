@@ -89,8 +89,8 @@ export function Settings({
           <h2>Take LipiFlow with you</h2>
           <p className="muted">
             {offlineReady
-              ? 'The app, engine and fonts are cached. You can reopen LipiFlow offline.'
-              : 'Open LipiFlow online and wait for “Ready offline” before using it without a connection.'}
+              ? 'LipiFlow is available without a connection on this device.'
+              : 'Open LipiFlow online once to prepare it for use without a connection.'}
           </p>
           {install ? (
             <button className="button primary" onClick={install}>

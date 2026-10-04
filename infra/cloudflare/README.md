@@ -35,6 +35,26 @@ reload and switch fonts. Then publish a new complete artifact and verify the upd
 prompt with unsaved text. Retain the previous complete artifact for rollback; use
 Pages’ deployment rollback and confirm the update flow again.
 
+## Hosted font catalogue
+
+The hosted edition uses the `lipiflow-user-fonts` R2 bucket and the
+`lipiflow-font-catalogue` D1 database configured in `apps/server/wrangler.jsonc`.
+Apply migrations before deploying the Worker:
+
+```sh
+pnpm --filter @lipiflow/server exec wrangler d1 migrations apply DB --remote
+pnpm deploy:cloudflare
+```
+
+To import a local font collection, generate the inventory and match report with
+`scripts/compare-mal-font-catalog.ps1`, then run
+`node scripts/upload-font-assets.mjs --root "<font-folder>" --upload --import-db`.
+It uploads to R2 first, records each file in D1 when the transfer completes, and
+links exact source matches to their original detail records. Font binaries stay
+out of the source repository. The Worker serves downloads and previews from R2,
+and a copyright report removes the affected font from public listing and download
+until an administrator resolves it.
+
 Static host logs may contain normal resource requests. Do not introduce text
 logging, conversion endpoints or analytics as part of deployment.
 

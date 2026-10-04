@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Account, ExternalFontSource, PublishedFont } from '@lipiflow/library';
+import type { Account, ExternalFontSource, LocalFontAsset, PublishedFont } from '@lipiflow/library';
 import { api, apiUrl, authHeaders } from '@lipiflow/library/client';
 import {
   auth,
@@ -16,7 +16,8 @@ export function useLibrary() {
     [csrf, setCsrf] = useState('');
   const [favourites, setFavourites] = useState<string[]>([]),
     [library, setLibrary] = useState<PublishedFont[]>([]),
-    [sourceFonts, setSourceFonts] = useState<ExternalFontSource[]>([]);
+    [sourceFonts, setSourceFonts] = useState<ExternalFontSource[]>([]),
+    [fontAssets, setFontAssets] = useState<LocalFontAsset[]>([]);
   const [config, setConfig] = useState({ local: false, loginAvailable: false }),
     [error, setError] = useState('');
   const [families, setFamilies] = useState<Record<string, string>>({});
@@ -56,14 +57,21 @@ export function useLibrary() {
   }, []);
   async function refresh() {
     try {
-      const [me, fonts, settings, sourceCatalogue] = await Promise.all([
+      const [me, fonts, settings, sourceCatalogue, localCatalogue] = await Promise.all([
         api<{ user: Account | null; csrf: string; favourites?: string[] }>('/api/me'),
         api<{ fonts: PublishedFont[] }>('/api/fonts'),
         api<typeof config>('/api/config'),
         api<{ fonts: ExternalFontSource[] }>('/api/source-fonts').catch(() => ({ fonts: [] })),
+        api<{ fonts: LocalFontAsset[] }>('/api/font-assets').catch(() => ({ fonts: [] })),
       ]);
       if (!active.current) return;
-      const available = new Set(fonts.fonts.map((font) => font.id));
+      const available = new Set([
+        ...fonts.fonts.map((font) => font.id),
+        ...sourceCatalogue.fonts
+          .filter((font) => font.assetStored)
+          .map((font) => `source:${font.sourceId}`),
+        ...localCatalogue.fonts.map((font) => `asset:${font.id}`),
+      ]);
       faces.current.forEach((face, id) => {
         if (!available.has(id)) {
           document.fonts.delete(face);
@@ -78,6 +86,7 @@ export function useLibrary() {
       if (!auth?.currentUser) setFavourites(me.favourites ?? []);
       setLibrary(fonts.fonts);
       setSourceFonts(sourceCatalogue.fonts);
+      setFontAssets(localCatalogue.fonts);
       setConfig({ ...settings, loginAvailable: settings.loginAvailable && firebaseConfigured });
       setError('');
     } catch {
@@ -121,18 +130,71 @@ export function useLibrary() {
     void task.finally(() => pending.current.delete(font.id)).catch(() => {});
     return task;
   }
+  function loadSource(font: ExternalFontSource): Promise<string> {
+    if (!font.assetStored) return Promise.reject(new Error('This font file is not stored yet.'));
+    const id = `source:${font.sourceId}`;
+    const loaded = faces.current.get(id);
+    if (loaded) return Promise.resolve(loaded.family);
+    const inFlight = pending.current.get(id);
+    if (inFlight) return inFlight;
+    const task = (async () => {
+      const response = await fetch(
+        apiUrl(`/api/source-fonts/${encodeURIComponent(font.sourceId)}/file`),
+        { cache: 'no-store', credentials: 'include', headers: await authHeaders() },
+      );
+      if (!response.ok) throw new Error('Font preview unavailable. Refresh the library.');
+      const family = `LipiFlowSource-${font.sourceNumericId}`;
+      const face = await new FontFace(family, await response.arrayBuffer()).load();
+      if (!active.current) throw new Error('The library was closed.');
+      document.fonts.add(face);
+      faces.current.set(id, face);
+      setFamilies((previous) => ({ ...previous, [id]: family }));
+      return family;
+    })();
+    pending.current.set(id, task);
+    void task.finally(() => pending.current.delete(id)).catch(() => {});
+    return task;
+  }
+  function loadAsset(font: LocalFontAsset): Promise<string> {
+    const id = `asset:${font.id}`;
+    const loaded = faces.current.get(id);
+    if (loaded) return Promise.resolve(loaded.family);
+    const inFlight = pending.current.get(id);
+    if (inFlight) return inFlight;
+    const task = (async () => {
+      const response = await fetch(apiUrl(`/api/font-assets/${font.id}/file`), {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: await authHeaders(),
+      });
+      if (!response.ok) throw new Error('Font preview unavailable. Refresh the library.');
+      const family = `LipiFlowAsset-${font.id}`,
+        face = await new FontFace(family, await response.arrayBuffer()).load();
+      if (!active.current) throw new Error('The library was closed.');
+      document.fonts.add(face);
+      faces.current.set(id, face);
+      setFamilies((previous) => ({ ...previous, [id]: family }));
+      return family;
+    })();
+    pending.current.set(id, task);
+    void task.finally(() => pending.current.delete(id)).catch(() => {});
+    return task;
+  }
   return {
     user,
     csrf,
     favourites,
     library,
     sourceFonts,
+    fontAssets,
     config,
     error,
     families,
     refresh,
     favourite,
     load,
+    loadSource,
+    loadAsset,
   };
 }
 export type LibraryStore = ReturnType<typeof useLibrary>;

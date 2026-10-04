@@ -2176,3 +2176,82 @@ input[type='range'] {
     font-size: 30px;
   }
 }
+
+/* Compact engine and searchable font controls in the editor toolbar. */
+.editor-controls {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 0 10px;
+}
+
+.engine-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.engine-indicator .tiny-dot {
+  background: var(--accent);
+}
+
+.workspace-toolbar .preview-choice {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: min(380px, 100%);
+}
+
+.workspace-toolbar .preview-choice > .font-search-picker {
+  width: min(235px, 50vw);
+}
+
+.workspace-toolbar .preview-choice > label.font-picker {
+  min-height: 38px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.workspace-toolbar .preview-choice > .font-search-picker .font-search-trigger {
+  min-height: 38px;
+  padding: 7px 10px;
+}
+
+.workspace-toolbar .preview-choice > .font-search-picker .font-search-popover {
+  top: calc(100% + 9px);
+}
+
+.workspace-toolbar .preview-choice > p {
+  display: none;
+}
+
+.external-font-family > summary h3 {
+  font-size: 14px;
+}
+
+.external-font-copy h4 .source-badge {
+  margin-inline-start: 6px;
+}
+
+.external-font-actions .button {
+  min-height: 36px;
+}
+
+.font-source-preview-heading + .font-detail-specimen {
+  margin-top: 10px;
+}
+
+@media (max-width: 700px) {
+  .workspace-toolbar .preview-choice {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .workspace-toolbar .preview-choice > .font-search-picker {
+    flex: 1;
+    width: auto;
+  }
+}

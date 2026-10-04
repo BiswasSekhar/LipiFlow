@@ -221,25 +221,21 @@ test('browser upload → separate admin review → live font preview → user re
   await page.getByLabel('Search fonts and families').fill(name);
   const row = page.locator('.font-family-row').filter({ hasText: name });
   await expect(row.locator('.catalogue-specimen')).toHaveText('കേരളം');
-  await row.getByRole('button', { name: 'Get info' }).click();
+  await row.getByRole('button', { name: 'Details' }).click();
   await expect(page.getByText('Author uploaded', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Download Regular' })).toBeVisible();
   await expect(page.locator('.font-detail-specimen')).toHaveText('കേരളം');
-  await expect(page.getByRole('button', { name: 'Use this font' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Save font' }).click();
-  await expect(page.getByRole('button', { name: 'Saved' }).last()).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await page.getByRole('button', { name: 'Use this font' }).click();
-  await expect(editor).toHaveValue('കേരളം');
-  await expect(editor).toHaveCSS('font-family', /LipiFlowHosted/);
+  await page.getByLabel('Preview text').fill('മലയാളം');
+  await expect(page.locator('.font-detail-specimen')).toHaveText('മലയാളം');
+  const fontDownload = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Download Regular' }).click();
+  expect((await fontDownload).suggestedFilename()).toMatch(/\.ttf$/);
   await page.getByRole('button', { name: 'Fonts', exact: true }).click();
   await page.getByLabel('Search fonts and families').fill(name);
   await page
     .locator('.font-family-row')
     .filter({ hasText: name })
-    .getByRole('button', { name: 'Get info' })
+    .getByRole('button', { name: 'Details' })
     .click();
   await page.getByRole('button', { name: 'Report copyright' }).click();
   await page.getByLabel('Your name').fill('Test owner');

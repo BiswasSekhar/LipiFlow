@@ -3,7 +3,7 @@ import { fonts } from './catalogue';
 import { Fonts } from './components/Fonts';
 import { AccountPanel } from './components/Account';
 import { hostedEdition, useLibrary } from './hosted';
-import type { PublishedFont } from '@lipiflow/library';
+import type { ExternalFontSource, LocalFontAsset, PublishedFont } from '@lipiflow/library';
 import { Icon } from './components/Icon';
 import { Settings } from './components/Settings';
 import { useTransliteration } from './engine/useTransliteration';
@@ -18,6 +18,7 @@ import {
 } from './preferences';
 import { useOffline } from './useOffline';
 import { InlineEditor } from './editor/InlineEditor';
+import { FontSearchPicker, type FontChoice } from './components/FontSearchPicker';
 import {
   mapOffset,
   readDocument,
@@ -40,6 +41,10 @@ export default function App() {
   const [view, setView] = useState<View>('type');
   const library = useLibrary();
   const [cloudFont, setCloudFont] = useState<{ font: PublishedFont; family: string } | null>(null);
+  const [sourceFont, setSourceFont] = useState<{ font: ExternalFontSource; family: string } | null>(
+    null,
+  );
+  const [assetFont, setAssetFont] = useState<{ font: LocalFontAsset; family: string } | null>(null);
   const [documentModel, setDocumentModel] = useState(() => readDocument(initialText));
   const source = saveDocument(documentModel);
   const [outputMode, setOutputMode] = useState<OutputMode>('Unicode');
@@ -68,15 +73,75 @@ export default function App() {
   const legacyFont = legacyFonts.find((font) => font.mode === outputMode);
   const outputText = isLegacy ? encoder.output : unicodeText;
   const legacyFamily =
-    cloudFont?.font.encoding === outputMode ? cloudFont.family : localFonts.loaded[outputMode];
+    assetFont?.font.encoding === outputMode
+      ? assetFont.family
+      : sourceFont?.font.encoding === outputMode
+        ? sourceFont.family
+        : cloudFont?.font.encoding === outputMode
+          ? cloudFont.family
+          : localFonts.loaded[outputMode];
   const renderedLegacy = isLegacy && !!legacyFamily && encoder.current;
   const editorText = renderedLegacy ? encoder.output : unicodeText;
   const outputCurrent = engine.current && (!isLegacy || encoder.current);
   const outputError = engine.status === 'error' || (isLegacy && encoder.status === 'error');
+  const legacyFontName =
+    assetFont?.font.encoding === outputMode
+      ? assetFont.font.family || assetFont.font.name
+      : sourceFont?.font.encoding === outputMode
+        ? sourceFont.font.family || sourceFont.font.name
+        : cloudFont?.font.encoding === outputMode
+          ? cloudFont.font.family || cloudFont.font.name
+          : legacyFont?.family;
   const activeFont =
-    cloudFont?.font.encoding === 'Unicode'
-      ? { name: cloudFont.font.name, cssFamily: cloudFont.family }
-      : (fonts.find((font) => font.id === prefs.fontId) ?? fonts[0]);
+    assetFont?.font.encoding === 'Unicode'
+      ? { name: assetFont.font.name, cssFamily: assetFont.family }
+      : sourceFont?.font.encoding === 'Unicode'
+        ? { name: sourceFont.font.name, cssFamily: sourceFont.family }
+        : cloudFont?.font.encoding === 'Unicode'
+          ? { name: cloudFont.font.name, cssFamily: cloudFont.family }
+          : (fonts.find((font) => font.id === prefs.fontId) ?? fonts[0]);
+  const fontChoices: FontChoice[] = [
+    ...(outputMode === 'Unicode'
+      ? fonts.map((font) => ({ id: font.id, name: font.name, detail: `Unicode · ${font.variant}` }))
+      : []),
+    ...library.library
+      .filter((font) => font.encoding === outputMode)
+      .map((font) => ({
+        id: `published:${font.id}`,
+        name: font.family || font.name,
+        detail: `${font.encoding} · ${font.variant}${font.encoding === 'Unicode' ? '' : ' · map not verified'}`,
+        disabled: font.encoding !== 'Unicode',
+      })),
+    ...library.fontAssets
+      .filter((font) => font.encoding === outputMode)
+      .map((font) => ({
+        id: `asset:${font.id}`,
+        name: font.family || font.name,
+        detail: `${font.encoding} · ${font.variant || font.sourceCategory}${font.mapVersion ? ' · map verified' : ' · map not verified'}`,
+        disabled: font.encoding !== 'Unicode' && !font.mapVersion,
+      })),
+    ...(isLegacy && localFonts.loaded[outputMode]
+      ? [
+          {
+            id: `local:${outputMode}`,
+            name: legacyFont?.family || 'Local font',
+            detail: `${outputMode} · this device`,
+          },
+        ]
+      : []),
+  ];
+  const selectedFontChoice =
+    assetFont?.font.encoding === outputMode
+      ? `asset:${assetFont.font.id}`
+      : sourceFont?.font.encoding === outputMode
+        ? `source:${sourceFont.font.sourceId}`
+        : cloudFont?.font.encoding === outputMode
+          ? `published:${cloudFont.font.id}`
+          : isLegacy && localFonts.loaded[outputMode]
+            ? `local:${outputMode}`
+            : outputMode === 'Unicode'
+              ? prefs.fontId
+              : '';
   const exportReady =
     outputCurrent && outputText.length > 0 && (!isLegacy || !encoder.unsupported.length);
   const chars = Array.from(unicodeText).length;
@@ -85,6 +150,19 @@ export default function App() {
     if (cloudFont && !library.library.some((font) => font.id === cloudFont.font.id))
       setCloudFont(null);
   }, [cloudFont, library.library]);
+
+  useEffect(() => {
+    if (assetFont && !library.fontAssets.some((font) => font.id === assetFont.font.id))
+      setAssetFont(null);
+  }, [assetFont, library.fontAssets]);
+
+  useEffect(() => {
+    if (
+      sourceFont &&
+      !library.sourceFonts.some((font) => font.sourceId === sourceFont.font.sourceId)
+    )
+      setSourceFont(null);
+  }, [sourceFont, library.sourceFonts]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -137,8 +215,68 @@ export default function App() {
         setStorageError(true);
       }
     }
-    if (patch.fontId) setCloudFont(null);
+    if (patch.fontId) {
+      setCloudFont(null);
+      setSourceFont(null);
+    }
     setPrefs((previous) => ({ ...previous, ...patch }));
+  }
+  async function selectTypeFont(id: string) {
+    const assetMatch = id.startsWith('asset:')
+      ? library.fontAssets.find((font) => `asset:${font.id}` === id)
+      : undefined;
+    if (assetMatch) {
+      try {
+        const family = await library.loadAsset(assetMatch);
+        setAssetFont({ font: assetMatch, family });
+        setCloudFont(null);
+        setSourceFont(null);
+        setNotice('Font preview changed');
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : 'This font could not be loaded.');
+      }
+      return;
+    }
+    const sourceMatch = id.startsWith('source:')
+      ? library.sourceFonts.find((font) => `source:${font.sourceId}` === id)
+      : undefined;
+    if (sourceMatch) {
+      try {
+        const family = await library.loadSource(sourceMatch);
+        setSourceFont({ font: sourceMatch, family });
+        setAssetFont(null);
+        setCloudFont(null);
+        setNotice('Font preview changed');
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : 'This font could not be loaded.');
+      }
+      return;
+    }
+    const publishedMatch = id.startsWith('published:')
+      ? library.library.find((font) => `published:${font.id}` === id)
+      : undefined;
+    if (publishedMatch) {
+      try {
+        const family = await library.load(publishedMatch);
+        setCloudFont({ font: publishedMatch, family });
+        setAssetFont(null);
+        setSourceFont(null);
+        setNotice('Font preview changed');
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : 'This font could not be loaded.');
+      }
+      return;
+    }
+    if (id.startsWith('local:')) {
+      setCloudFont(null);
+      setSourceFont(null);
+      setAssetFont(null);
+      return;
+    }
+    changePreferences({ fontId: id });
+    setCloudFont(null);
+    setSourceFont(null);
+    setAssetFont(null);
   }
   function edit(text: string) {
     setDocumentModel(readDocument(text));
@@ -150,7 +288,7 @@ export default function App() {
       await navigator.clipboard.writeText(outputText);
       setNotice(
         isLegacy
-          ? `${outputMode} encoded text copied. Apply ${legacyFont?.family} where you paste.`
+          ? `${outputMode} encoded text copied. Apply ${legacyFontName} where you paste.`
           : 'Malayalam copied',
       );
       setManualCopy(false);
@@ -220,16 +358,6 @@ export default function App() {
           </span>
           <span>LipiFlow</span>
         </a>
-        <div className="header-status">
-          <span className={`status-dot ${offline.ready ? 'ready' : ''}`} />
-          <span>
-            {offline.ready
-              ? offline.online
-                ? 'Ready offline'
-                : 'Working offline'
-              : 'Preparing offline'}
-          </span>
-        </div>
         {hostedEdition ? (
           <button className="button secondary account-trigger" onClick={() => setView('account')}>
             {library.user ? 'My library' : 'Sign in'}
@@ -280,22 +408,10 @@ export default function App() {
         {view === 'type' ? (
           <>
             <div className="editor-controls">
-              <div className="typing-method">
-                <select
-                  id="typing-method"
-                  aria-label="Typing method"
-                  value={prefs.provider}
-                  onChange={(event) =>
-                    changePreferences({ provider: event.target.value as Preferences['provider'] })
-                  }
-                >
-                  <option value="mozhi">Mozhi 2 · offline</option>
-                  <option value="google">Google · online</option>
-                </select>
-                {engine.offlineFallback ? (
-                  <p className="muted small">Offline · using Mozhi</p>
-                ) : null}
-              </div>
+              <span className="engine-indicator" role="status">
+                <span className="tiny-dot" />
+                {engine.offlineFallback || prefs.provider === 'mozhi' ? 'Mozhi 2' : 'Google'}
+              </span>
             </div>
             <section
               className="workspace single-workspace"
@@ -318,12 +434,18 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <div className={`preview-choice ${isLegacy ? 'legacy-choice' : ''}`}>
+                <div className="preview-choice">
+                  <label className="control-label">Font</label>
+                  <FontSearchPicker
+                    value={selectedFontChoice}
+                    choices={fontChoices}
+                    searchLabel={`Search ${outputMode} fonts`}
+                    onChoose={(id) => void selectTypeFont(id)}
+                  />
                   {isLegacy ? (
                     <>
-                      <span className="control-label">Font</span>
                       <label htmlFor="legacy-font" className="button secondary font-picker">
-                        {localFonts.loaded[outputMode] ? legacyFont?.family : 'Choose font'}
+                        {localFonts.loading ? 'Opening…' : 'Open from device'}
                       </label>
                       <input
                         id="legacy-font"
@@ -343,28 +465,7 @@ export default function App() {
                         </p>
                       ) : null}
                     </>
-                  ) : (
-                    <>
-                      <label htmlFor="preview-font">Font</label>
-                      <select
-                        id="preview-font"
-                        aria-label="Preview font"
-                        value={
-                          cloudFont?.font.encoding === 'Unicode' ? cloudFont.font.id : prefs.fontId
-                        }
-                        onChange={(event) => changePreferences({ fontId: event.target.value })}
-                      >
-                        {cloudFont?.font.encoding === 'Unicode' ? (
-                          <option value={cloudFont.font.id}>{cloudFont.font.name}</option>
-                        ) : null}
-                        {fonts.map((font) => (
-                          <option key={font.id} value={font.id}>
-                            {font.name}
-                          </option>
-                        ))}
-                      </select>
-                    </>
-                  )}
+                  ) : null}
                 </div>
               </div>
               <div className="editor-panel output-panel inline-panel">
@@ -538,25 +639,8 @@ export default function App() {
         ) : view === 'fonts' ? (
           <Fonts
             store={library}
-            onSignIn={() => setView('account')}
-            onHostedSelect={(font, family) => {
-              setCloudFont({ font, family });
-              setOutputMode(font.encoding);
-              setView('type');
-            }}
-            selected={cloudFont?.font.id ?? prefs.fontId}
             sample={unicodeText}
             encodedSample={encoder.current ? encoder.output : ''}
-            legacyLoaded={localFonts.loaded}
-            onLegacyLoad={(file, mode) => void localFonts.load(file, mode)}
-            onLegacySelect={(mode) => {
-              setOutputMode(mode);
-              setView('type');
-            }}
-            onSelect={(id) => {
-              changePreferences({ fontId: id });
-              setNotice('Preview font changed');
-            }}
           />
         ) : view === 'account' ? (
           <AccountPanel

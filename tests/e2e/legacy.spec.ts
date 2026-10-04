@@ -2,6 +2,12 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('lipiflow.preferences.v1', JSON.stringify({ provider: 'mozhi' }));
+  });
+});
+
 test('FML and ML-TT encode real text, export codes, reject unknown fonts and preserve Unicode', async ({
   page,
   browserName,

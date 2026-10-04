@@ -1,7 +1,6 @@
 # Supplied Malayalam font collection
 
-Inspected on 3 October 2026 from `Downloads/Malayalam Fonts`, without changing,
-installing or copying the font binaries into the app. All 782 SFNT font files were
+Inspected on 3 October 2026 from the supplied `Malayalam Fonts` folder. All 782 SFNT font files were
 read successfully. The full name, version, copyright, embedded licence fields,
 embedding flags, character-map range coverage and SHA-256 are recorded in
 `artifacts/local-font-inventory.json` (local artifact, excluded from Git).
@@ -26,11 +25,12 @@ One font across the entire collection has embedded licence metadata. Font
 embedding flags and words such as “FREE” in a copyright field are metadata, not
 proof of permission to redistribute a whole font collection.
 
-The Fonts screen can now open these `.ttf`/`.otf` files directly for a local
-character proof. Files are read into browser memory, never uploaded or bundled,
-and released when leaving the Fonts screen. The proof renders legacy character
-positions, and is labelled unmapped. It does not present simulated Malayalam
-conversion or enable legacy export.
+The hosted edition stores the supplied files in the private R2 bucket and serves
+them through LipiFlow's font catalogue. The binaries are not committed to Git or
+bundled with the standalone app. Downloading is enabled for the hosted catalogue
+until a copyright report is filed; the affected file is then removed from public
+listing and download while it is reviewed. Rights remain unverified unless the
+original licence has been checked.
 
 The next mapping step needs a licensed map/reference chart and independently
 known-good Unicode/legacy text for exact selected variants. For distribution,

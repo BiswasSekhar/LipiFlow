@@ -67,9 +67,10 @@ The source is ready to publish, with [contribution guidelines](CONTRIBUTING.md) 
 - Draft saving starts **off**. Settings can remember one draft on this device.
   Switching it off deletes the saved draft without clearing the open editor.
 
-FML and ML-TT now use the checked Karthika map with local regular
-`FMLKR0NTT.ttf` and `MLKR0NTT.TTF` previews. Other font variants need their own
-verification. Copy exports legacy character positions; downloads use UTF-8.
+FML and ML-TT typing uses the checked Karthika map with the matching verified
+`FMLKR0NTT.ttf` and `MLKR0NTT.TTF` faces. Other font files remain downloadable,
+but the Type picker disables them until their encoding maps are checked. Copy
+exports legacy character positions; downloads use UTF-8.
 See `docs/MAP_FORMAT.md` for loading files and unsupported-character handling.
 No user-owned legacy fonts are bundled. See the [font mapping intake requirements](docs/LEGACY_FONT_INTAKE.md).
 This release is an editor, not a system keyboard or an input method.
@@ -80,11 +81,12 @@ browser composition. Choose Unicode, FML or ML-TT above the same editor. Load th
 exact matching legacy font to see its appearance; copy and download use the selected
 encoding even when its local font has not been loaded. The compact Fonts page
 searches by name and filters by category and encoding.
-It links downloads for the bundled Malayalam WOFF2 web fonts, each font's SIL OFL
-notice and the official full-font releases. Previews use the current editor text.
-Open local `.ttf`/`.otf` files for real
-Unicode or checked Karthika previews; unknown encodings keep a character proof.
-These local files are not uploaded or installed. Use the Type editor’s FML/ML-TT controls for checked Karthika conversion.
+It lists the hosted R2 font catalogue by family, encoding and category, with
+search, font details, live previews, one-click downloads and copyright reporting.
+Local-font records connect exact matches to source metadata. Downloads stay in
+R2 and are not committed to the open-source repository. Unicode faces preview
+the editor text directly. Legacy previews and Type choices use a conversion map
+only when that exact font file is verified.
 The supplied collection was [inspected locally](docs/LOCAL_FONT_INVENTORY.md).
 
 ## Checks

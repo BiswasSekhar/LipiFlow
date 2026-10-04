@@ -15,3 +15,166 @@
     justify-content: flex-start;
   }
 }
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  margin-inline-start: 5px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.asset-download-link {
+  text-decoration: none;
+}
+
+.asset-download-link:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.asset-preview-note {
+  padding: 12px 0;
+  line-height: 1.5;
+}
+
+.source-font-info dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px 22px;
+}
+
+.source-font-info dl > div {
+  min-width: 0;
+}
+
+.source-font-info dt {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.source-font-info dd {
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.source-copyright {
+  grid-column: 1 / -1;
+}
+
+.font-source-preview-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.font-search-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.font-search-trigger {
+  width: 100%;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.font-search-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.font-search-popover {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 7px);
+  right: 0;
+  width: min(360px, calc(100vw - 44px));
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 16px 44px rgb(0 0 0 / 16%);
+}
+
+.font-search-popover input[type='search'] {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--canvas);
+}
+
+.font-search-options {
+  display: grid;
+  max-height: min(330px, 50vh);
+  overflow: auto;
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.font-search-options button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+}
+
+.font-search-options button:hover:not(:disabled),
+.font-search-options button[aria-selected='true'] {
+  background: var(--accent-soft);
+}
+
+.font-search-options button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.font-search-options button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 570;
+}
+
+.font-search-options button small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.font-search-options > .muted {
+  padding: 10px;
+}
+
+@media (max-width: 700px) {
+  .source-font-info dl {
+    grid-template-columns: 1fr;
+  }
+
+  .font-search-popover {
+    right: auto;
+    left: 0;
+  }
+}

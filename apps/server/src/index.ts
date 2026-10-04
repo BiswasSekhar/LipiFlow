@@ -1,5 +1,6 @@
 import {
   draftSchema,
+  fontAssetReportSchema,
   inspectFont,
   maxFontBytes,
   reportSchema,
@@ -8,6 +9,8 @@ import {
   uploadSchema,
   type Account,
   type ExternalFontSource,
+  type LocalFontAsset,
+  type FontAssetReport,
   type LibraryFont,
   type SourceFontReport,
   externalFontDownloadUrl,
@@ -190,6 +193,7 @@ function parsed<T>(result: {
   return result.data as T;
 }
 type StoredFont = LibraryFont & { objectKey: string };
+type StoredFontAsset = LocalFontAsset & { objectKey: string; sha256: string; bytes: number };
 async function getFont(env: Env, id: string) {
   if (!/^[a-z0-9-]{1,100}$/.test(id)) fail(404, 'Font not found.');
   return env.DB.prepare('SELECT * FROM fonts WHERE id=?').bind(id).first<StoredFont>();
@@ -265,7 +269,7 @@ async function route(request: Request, env: Env) {
   }
   if (path === '/api/source-fonts' && method === 'GET') {
     const sources = await env.DB.prepare(
-      'SELECT sourceId,sourceNumericId,name,family,variant,sourceCategory,encoding,sourceUrl,reportedLicence,copyrightText,rightsStatus,assetStored,importedAt FROM externalFontSources ORDER BY name COLLATE NOCASE LIMIT 1000',
+      "SELECT sourceId,sourceNumericId,name,family,variant,sourceCategory,encoding,sourceUrl,reportedLicence,copyrightText,rightsStatus,assetStored,importedAt FROM externalFontSources WHERE rightsStatus NOT IN ('restricted','rights-review') ORDER BY name COLLATE NOCASE LIMIT 1000",
     ).all<ExternalFontSource>();
     return json({
       fonts: sources.results.map((font) => ({
@@ -273,6 +277,126 @@ async function route(request: Request, env: Env) {
         sourceUrl: externalFontDownloadUrl(font) ?? '',
       })),
     });
+  }
+  const sourceAssetFile = path.match(/^\/api\/source-fonts\/(malayalamfont-\d{1,12})\/file$/);
+  if (sourceAssetFile && method === 'GET') {
+    const font = await env.DB.prepare(
+      `SELECT a.*,s.rightsStatus AS sourceRightsStatus FROM fontAssets a
+       JOIN externalFontSources s ON s.sourceId=a.sourceId WHERE s.sourceId=?
+       AND a.rightsStatus NOT IN ('restricted','rights-review')
+       ORDER BY a.variant COLLATE NOCASE,a.name COLLATE NOCASE LIMIT 1`,
+    )
+      .bind(sourceAssetFile[1])
+      .first<StoredFontAsset & { sourceRightsStatus: ExternalFontSource['rightsStatus'] }>();
+    if (
+      !font ||
+      ['restricted', 'rights-review'].includes(font.rightsStatus) ||
+      ['restricted', 'rights-review'].includes(font.sourceRightsStatus)
+    )
+      fail(404, 'Font not found.');
+    const object = await env.FONT_BUCKET.get(font.objectKey);
+    if (!object) fail(404, 'Font file unavailable.');
+    const safeName =
+      font.filename
+        .replace(/\.(?:ttf|otf)$/i, '')
+        .replace(/[^a-z0-9._-]+/gi, '-')
+        .slice(0, 100) || 'font';
+    const extension = font.filename.toLowerCase().endsWith('.otf') ? 'otf' : 'ttf';
+    const headers = new Headers({
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Disposition': `${url.searchParams.get('download') === '1' ? 'attachment' : 'inline'}; filename="${safeName}.${extension}"`,
+    });
+    object.writeHttpMetadata(headers);
+    headers.set('ETag', object.httpEtag);
+    return new Response(object.body, { headers });
+  }
+  if (path === '/api/font-assets' && method === 'GET') {
+    const assets = await env.DB.prepare(
+      `SELECT a.id,a.filename,a.name,a.family,a.variant,a.sourceCategory,a.encoding,a.sourceId,a.mapVersion,
+        s.sourceNumericId,COALESCE(s.sourceUrl,'') AS sourceUrl,
+        COALESCE(s.reportedLicence,'Not listed') AS reportedLicence,
+        COALESCE(s.copyrightText,'') AS copyrightText,
+        CASE WHEN s.rightsStatus IN ('restricted','rights-review') THEN s.rightsStatus ELSE a.rightsStatus END AS rightsStatus,
+        1 AS assetStored,a.importedAt
+       FROM fontAssets a LEFT JOIN externalFontSources s ON s.sourceId=a.sourceId
+       WHERE a.rightsStatus NOT IN ('restricted','rights-review')
+         AND COALESCE(s.rightsStatus,'unverified') NOT IN ('restricted','rights-review')
+       ORDER BY a.family COLLATE NOCASE,a.variant COLLATE NOCASE,a.name COLLATE NOCASE LIMIT 2000`,
+    ).all<LocalFontAsset>();
+    return json({ fonts: assets.results });
+  }
+  const localAsset = path.match(/^\/api\/font-assets\/(local-font-[a-f0-9]{24})(?:\/file)?$/);
+  if (localAsset && method === 'GET') {
+    const font = await env.DB.prepare(
+      `SELECT a.*,COALESCE(s.rightsStatus,'unverified') AS sourceRightsStatus
+       FROM fontAssets a LEFT JOIN externalFontSources s ON s.sourceId=a.sourceId WHERE a.id=?`,
+    )
+      .bind(localAsset[1])
+      .first<StoredFontAsset & { sourceRightsStatus: ExternalFontSource['rightsStatus'] }>();
+    if (
+      !font ||
+      ['restricted', 'rights-review'].includes(font.rightsStatus) ||
+      ['restricted', 'rights-review'].includes(font.sourceRightsStatus)
+    )
+      fail(404, 'Font not found.');
+    if (path.endsWith('/file')) {
+      const object = await env.FONT_BUCKET.get(font.objectKey);
+      if (!object) fail(404, 'Font file unavailable.');
+      const extension = font.filename.toLowerCase().endsWith('.otf') ? 'otf' : 'ttf';
+      const safeName =
+        font.filename
+          .replace(/\.(?:ttf|otf)$/i, '')
+          .replace(/[^a-z0-9._-]+/gi, '-')
+          .slice(0, 100) || 'font';
+      const headers = new Headers({
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Disposition': `${url.searchParams.get('download') === '1' ? 'attachment' : 'inline'}; filename="${safeName}.${extension}"`,
+      });
+      object.writeHttpMetadata(headers);
+      headers.set('ETag', object.httpEtag);
+      return new Response(object.body, { headers });
+    }
+    return json({
+      font: Object.fromEntries(
+        Object.entries(font).filter(
+          ([key]) => !['objectKey', 'sha256', 'bytes', 'sourceRightsStatus'].includes(key),
+        ),
+      ),
+    });
+  }
+  const localAssetReport = path.match(/^\/api\/font-assets\/(local-font-[a-f0-9]{24})\/reports$/);
+  if (localAssetReport && method === 'POST') {
+    if (!localAllowed(env, url) && !env.RATE_SALT) fail(503, 'Reports are not configured yet.');
+    await limited(
+      env,
+      'asset-report:' + (request.headers.get('CF-Connecting-IP') ?? 'local'),
+      localAllowed(env, url) ? 100 : 5,
+    );
+    const data = parsed(fontAssetReportSchema.safeParse(await body(request)));
+    if (data.assetId !== localAssetReport[1]) fail(400, 'The report does not match this font.');
+    const font = await env.DB.prepare('SELECT id,sourceId FROM fontAssets WHERE id=?')
+      .bind(data.assetId)
+      .first<{ id: string; sourceId: string | null }>();
+    if (!font) fail(404, 'Font not found.');
+    const id = crypto.randomUUID();
+    const statements = [
+      env.DB.prepare(
+        'INSERT INTO fontAssetReports(id,assetId,name,email,details,evidenceUrl,createdAt) VALUES(?,?,?,?,?,?,?)',
+      ).bind(id, data.assetId, data.name, data.email, data.details, data.evidenceUrl, now()),
+      env.DB.prepare("UPDATE fontAssets SET rightsStatus='rights-review' WHERE id=?").bind(
+        data.assetId,
+      ),
+    ];
+    if (font.sourceId)
+      statements.push(
+        env.DB.prepare(
+          "UPDATE externalFontSources SET rightsStatus='rights-review' WHERE sourceId=?",
+        ).bind(font.sourceId),
+      );
+    await env.DB.batch(statements);
+    return json({ id }, 201);
   }
   const sourceReport = path.match(/^\/api\/source-fonts\/(malayalamfont-\d{1,12})\/reports$/);
   if (sourceReport && method === 'POST') {
@@ -505,6 +629,20 @@ async function route(request: Request, env: Env) {
           ).all<SourceFontReport>()
         ).results,
       });
+    if (path === '/api/admin/font-asset-reports' && method === 'GET')
+      return json({
+        reports: (
+          await env.DB.prepare(
+            `SELECT r.id,r.assetId AS sourceId,r.assetId,r.name,r.email,r.details,r.evidenceUrl,r.status,r.resolution,r.createdAt,
+              a.name AS sourceName,COALESCE(s.sourceUrl,'') AS sourceUrl,
+              COALESCE(s.reportedLicence,'Not listed') AS reportedLicence,
+              CASE WHEN s.rightsStatus IN ('restricted','rights-review') THEN s.rightsStatus ELSE a.rightsStatus END AS rightsStatus
+             FROM fontAssetReports r JOIN fontAssets a ON a.id=r.assetId
+             LEFT JOIN externalFontSources s ON s.sourceId=a.sourceId
+             ORDER BY r.createdAt DESC LIMIT 1000`,
+          ).all<FontAssetReport>()
+        ).results,
+      });
     const sourceReportReview = path.match(/^\/api\/admin\/source-font-reports\/([a-z0-9-]+)$/);
     if (sourceReportReview && method === 'PATCH') {
       const data = await body(request);
@@ -515,6 +653,55 @@ async function route(request: Request, env: Env) {
         typeof data.restoreDownload !== 'boolean'
       )
         fail(400, 'Add a resolution note and choose whether to restore the source link.');
+      const assetReport = await env.DB.prepare('SELECT assetId FROM fontAssetReports WHERE id=?')
+        .bind(sourceReportReview[1])
+        .first<{ assetId: string }>();
+      if (assetReport) {
+        const asset = await env.DB.prepare('SELECT sourceId FROM fontAssets WHERE id=?')
+          .bind(assetReport.assetId)
+          .first<{ sourceId: string | null }>();
+        const otherOpen = await env.DB.prepare(
+          "SELECT COUNT(*) AS count FROM fontAssetReports WHERE assetId=? AND status='open' AND id<>?",
+        )
+          .bind(assetReport.assetId, sourceReportReview[1])
+          .first<{ count: number }>();
+        const nextRightsStatus = otherOpen?.count
+          ? 'rights-review'
+          : data.restoreDownload
+            ? 'unverified'
+            : 'restricted';
+        const statements = [
+          env.DB.prepare(
+            "UPDATE fontAssetReports SET status='resolved',resolution=? WHERE id=?",
+          ).bind(data.resolution.trim(), sourceReportReview[1]),
+          env.DB.prepare('UPDATE fontAssets SET rightsStatus=? WHERE id=?').bind(
+            nextRightsStatus,
+            assetReport.assetId,
+          ),
+        ];
+        if (asset?.sourceId) {
+          const remainingSourceReports = await env.DB.prepare(
+            "SELECT COUNT(*) AS count FROM sourceFontReports WHERE sourceId=? AND status='open'",
+          )
+            .bind(asset.sourceId)
+            .first<{ count: number }>();
+          const otherAssetReports = await env.DB.prepare(
+            `SELECT COUNT(*) AS count FROM fontAssetReports r JOIN fontAssets a ON a.id=r.assetId
+             WHERE a.sourceId=? AND r.status='open' AND r.id<>?`,
+          )
+            .bind(asset.sourceId, sourceReportReview[1])
+            .first<{ count: number }>();
+          if (!remainingSourceReports?.count && !otherAssetReports?.count)
+            statements.push(
+              env.DB.prepare('UPDATE externalFontSources SET rightsStatus=? WHERE sourceId=?').bind(
+                data.restoreDownload ? 'unverified' : 'restricted',
+                asset.sourceId,
+              ),
+            );
+        }
+        await env.DB.batch(statements);
+        return json({ ok: true });
+      }
       const saved = await env.DB.prepare('SELECT sourceId FROM sourceFontReports WHERE id=?')
         .bind(sourceReportReview[1])
         .first<{ sourceId: string }>();

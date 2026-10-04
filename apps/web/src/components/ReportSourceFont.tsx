@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ExternalFontSource } from '@lipiflow/library';
+import type { ExternalFontSource, LocalFontAsset } from '@lipiflow/library';
 import { api } from '@lipiflow/library/client';
 
 export function ReportSourceFont({
@@ -7,7 +7,7 @@ export function ReportSourceFont({
   onClose,
   onReported,
 }: {
-  font: ExternalFontSource;
+  font: ExternalFontSource | LocalFontAsset;
   onClose(): void;
   onReported(): Promise<void>;
 }) {
@@ -26,14 +26,16 @@ export function ReportSourceFont({
   return (
     <dialog ref={dialog} className="report-dialog" onCancel={onClose}>
       <div className="section-heading">
-        <h2>Report a source font</h2>
+        <h2>Report copyright</h2>
         <button className="text-button" onClick={onClose} aria-label="Close report">
           Close
         </button>
       </div>
       <p>{font.name}</p>
       {sent ? (
-        <p role="status">{notice} This listing's source link is disabled while it is reviewed.</p>
+        <p role="status">
+          {notice} This font is removed from public listings while it is reviewed.
+        </p>
       ) : (
         <form
           className="upload-form"
@@ -41,17 +43,24 @@ export function ReportSourceFont({
             event.preventDefault();
             const form = new FormData(event.currentTarget);
             setBusy(true);
-            void api<{ id: string }>(`/api/source-fonts/${font.sourceId}/reports`, {
-              method: 'POST',
-              body: JSON.stringify({
-                sourceId: font.sourceId,
-                name: form.get('name'),
-                email: form.get('email'),
-                details: form.get('details'),
-                evidenceUrl: form.get('evidenceUrl'),
-                goodFaith: form.get('goodFaith') === 'on',
-              }),
-            })
+            const localAsset = 'id' in font;
+            const reportId = localAsset ? font.id : font.sourceId;
+            void api<{ id: string }>(
+              localAsset
+                ? `/api/font-assets/${reportId}/reports`
+                : `/api/source-fonts/${reportId}/reports`,
+              {
+                method: 'POST',
+                body: JSON.stringify({
+                  ...(localAsset ? { assetId: reportId } : { sourceId: reportId }),
+                  name: form.get('name'),
+                  email: form.get('email'),
+                  details: form.get('details'),
+                  evidenceUrl: form.get('evidenceUrl'),
+                  goodFaith: form.get('goodFaith') === 'on',
+                }),
+              },
+            )
               .then((result) => {
                 setNotice('Report received. Reference: ' + result.id + '.');
                 setSent(true);
@@ -88,9 +97,9 @@ export function ReportSourceFont({
             made in good faith.
           </label>
           <p className="muted small full-width">
-            A report immediately disables this source link in LipiFlow while an administrator
-            reviews it. Your contact details and evidence are shared with this instance’s
-            administrators.
+            A report immediately removes this font from public listings and downloads while an
+            administrator reviews it. Your contact details and evidence are shared with this
+            instance’s administrators.
           </p>
           <button className="button primary" disabled={busy}>
             Send report

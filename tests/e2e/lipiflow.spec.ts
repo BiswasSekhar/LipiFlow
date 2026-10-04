@@ -3,9 +3,17 @@ import { expect, test } from '@playwright/test';
 import { artifactServer } from './artifact-server';
 
 async function open(page: import('@playwright/test').Page, url = '/') {
+  await page.addInitScript(() => {
+    localStorage.setItem('lipiflow.preferences.v1', JSON.stringify({ provider: 'mozhi' }));
+  });
   await page.goto(url);
-  await page.getByLabel('Typing method', { exact: true }).selectOption('mozhi');
   await expect(page.getByText('Ready', { exact: true })).toBeVisible();
+}
+
+async function chooseUnicodeFont(page: import('@playwright/test').Page, name: string) {
+  await page.locator('.font-search-trigger').click();
+  await page.getByRole('searchbox', { name: 'Search Unicode fonts' }).fill(name);
+  await page.getByRole('option', { name: new RegExp(name) }).click();
 }
 
 test('typing, fonts, UTF-8 export and navigation', async ({ page }) => {
@@ -22,8 +30,10 @@ test('typing, fonts, UTF-8 export and navigation', async ({ page }) => {
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('lipiflow-malayalam.txt');
   expect(await readFile((await download.path())!, 'utf8')).toBe('നമസ്കാരം!\nLipiFlow 😀');
-  await page.getByLabel('Preview font').selectOption('noto-serif-malayalam');
-  await expect(page.locator('.workspace-toolbar').getByLabel('Preview font')).toBeVisible();
+  await chooseUnicodeFont(page, 'Noto Serif Malayalam');
+  await expect(
+    page.locator('.workspace-toolbar').getByRole('button', { name: 'Noto Serif Malayalam' }),
+  ).toBeVisible();
   await expect(output).toHaveCSS('font-family', /Noto Serif Malayalam/);
   await expect(output).toHaveValue('നമസ്കാരം!\nLipiFlow 😀');
   await expect(page.getByRole('button', { name: 'Typing guide' })).toHaveCount(0);
@@ -107,7 +117,7 @@ test('offline reload includes engine, fonts and exports; typing makes no request
   const isolated = browserName === 'webkit' ? await artifactServer() : undefined;
   try {
     await open(page, isolated?.origin);
-    await expect(page.getByText('Ready offline', { exact: true })).toBeVisible();
+    await expect(page.locator('.header-status')).toHaveCount(0);
     await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
     });
@@ -118,9 +128,7 @@ test('offline reload includes engine, fonts and exports; typing makes no request
     else await context.setOffline(true);
     const response = await page.reload();
     expect(response?.fromServiceWorker()).toBe(true);
-    await expect(
-      page.getByText(isolated ? 'Ready offline' : 'Working offline', { exact: true }),
-    ).toBeVisible();
+    await expect(page.locator('.header-status')).toHaveCount(0);
     await expect(page.getByText('Ready', { exact: true })).toBeVisible();
     await page.evaluate(async () => {
       await document.fonts.ready;
@@ -129,7 +137,7 @@ test('offline reload includes engine, fonts and exports; typing makes no request
     page.on('request', (request) => requests.push(request.url()));
     await page.getByLabel('Malayalam editor', { exact: true }).fill('njaan {offline}');
     await expect(page.getByLabel('Malayalam editor', { exact: true })).toHaveValue('ഞാൻ offline');
-    await page.getByLabel('Preview font').selectOption('noto-serif-malayalam');
+    await chooseUnicodeFont(page, 'Noto Serif Malayalam');
     await page.evaluate(async () => {
       await document.fonts.load('36px "Noto Serif Malayalam"', 'മലയാളം');
     });
@@ -171,7 +179,7 @@ test('accepting a service-worker update preserves an unsaved draft', async ({ pa
   const server = await artifactServer();
   try {
     await open(page, server.origin);
-    await expect(page.getByText('Ready offline', { exact: true })).toBeVisible();
+    await expect(page.locator('.header-status')).toHaveCount(0);
     await page.getByLabel('Malayalam editor', { exact: true }).fill('njaan {unsaved}');
     await expect(page.getByLabel('Malayalam editor', { exact: true })).toHaveValue('ഞാൻ unsaved');
     server.revise();
@@ -236,43 +244,12 @@ test('single mobile editor, keyboard access and unclipped font rendering', async
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('local font files load without upload and show an explicitly unmapped character proof', async ({
-  page,
-}) => {
-  await open(page);
-  await page.getByRole('button', { name: 'Fonts', exact: true }).click();
-  const externalRequests: string[] = [];
-  page.on('request', (request) => {
-    if (!request.url().startsWith('http://127.0.0.1:4173')) externalRequests.push(request.url());
-  });
-  await page.getByLabel('Local font files').setInputFiles({
-    name: 'local-proof.woff2',
-    mimeType: 'font/woff2',
-    buffer: await readFile('apps/web/public/fonts/noto-sans-malayalam.woff2'),
-  });
-  await expect(page.getByRole('heading', { name: 'local-proof.woff2' })).toBeVisible();
-  await expect(page.getByText('Local file · unmapped')).toBeVisible();
-  expect(
-    await page.evaluate(() =>
-      Array.from(document.fonts).some(
-        (font) => font.family.startsWith('LipiFlowLocal-') && font.status === 'loaded',
-      ),
-    ),
-  ).toBe(true);
-  expect(externalRequests).toEqual([]);
-  await page.getByRole('button', { name: 'Type', exact: true }).click();
-  expect(
-    await page.evaluate(() =>
-      Array.from(document.fonts).some((font) => font.family.startsWith('LipiFlowLocal-')),
-    ),
-  ).toBe(false);
-  await expect(page.getByRole('button', { name: 'FML', exact: true })).toBeEnabled();
-});
-
 test('WASM startup failure preserves source and offers recovery', async ({ page }) => {
   await page.route('**/*.wasm', (route) => route.abort());
+  await page.addInitScript(() => {
+    localStorage.setItem('lipiflow.preferences.v1', JSON.stringify({ provider: 'mozhi' }));
+  });
   await page.goto('/');
-  await page.getByLabel('Typing method', { exact: true }).selectOption('mozhi');
   await expect(page.getByRole('button', { name: 'Retry conversion' })).toBeVisible();
   await page.getByLabel('Malayalam editor', { exact: true }).fill('njaan');
   await expect(page.getByRole('button', { name: 'Copy Malayalam' })).toBeDisabled();
@@ -304,7 +281,7 @@ test('another tab accepting an update cannot discard this tab’s text', async (
   const server = await artifactServer();
   try {
     await open(page, server.origin);
-    await expect(page.getByText('Ready offline', { exact: true })).toBeVisible();
+    await expect(page.locator('.header-status')).toHaveCount(0);
     await page.getByLabel('Malayalam editor', { exact: true }).fill('njaan {first tab}');
     await expect(page.getByLabel('Malayalam editor', { exact: true })).toHaveValue('ഞാൻ first tab');
     const other = await context.newPage();

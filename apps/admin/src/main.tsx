@@ -12,6 +12,7 @@ import type {
   Account,
   CopyrightReport,
   ExternalFontSource,
+  FontAssetReport,
   LibraryFont,
   SourceFontReport,
 } from '@lipiflow/library';
@@ -244,7 +245,7 @@ function SourceReportReview({
   csrf,
   onUpdate,
 }: {
-  report: SourceFontReport;
+  report: SourceFontReport | FontAssetReport;
   csrf: string;
   onUpdate(): Promise<void>;
 }) {
@@ -265,16 +266,23 @@ function SourceReportReview({
       </p>
       <p>{report.details}</p>
       <p className="muted">Reported source licence: {report.reportedLicence}</p>
-      <a href={report.sourceUrl} target="_blank" rel="noreferrer">
-        Review source details ↗
-      </a>
+      {report.sourceUrl ? (
+        <a href={report.sourceUrl} target="_blank" rel="noreferrer">
+          Review source details ↗
+        </a>
+      ) : (
+        <p className="muted">
+          This report is for a locally stored font with no matched source page.
+        </p>
+      )}
       <p>
         <a href={report.evidenceUrl} target="_blank" rel="noreferrer">
           Ownership evidence ↗
         </a>
       </p>
       <p className="muted">
-        Source: {report.sourceId} · Report: {report.id}
+        {'assetId' in report ? 'Downloaded asset' : 'Source'}: {report.sourceId} · Report:{' '}
+        {report.id}
       </p>
       {report.status === 'open' ? (
         <form
@@ -349,6 +357,7 @@ function Admin() {
     [reports, setReports] = useState<CopyrightReport[]>([]),
     [sourceFonts, setSourceFonts] = useState<ExternalFontSource[]>([]),
     [sourceReports, setSourceReports] = useState<SourceFontReport[]>([]),
+    [assetReports, setAssetReports] = useState<FontAssetReport[]>([]),
     [tab, setTab] = useState('fonts'),
     [targetUid, setTargetUid] = useState(''),
     [targetRole, setTargetRole] = useState<'user' | 'admin'>('user'),
@@ -378,6 +387,10 @@ function Admin() {
           '/api/admin/source-font-reports',
         );
         setSourceReports(sourceReportData.reports);
+        const assetReportData = await api<{ reports: FontAssetReport[] }>(
+          '/api/admin/font-asset-reports',
+        );
+        setAssetReports(assetReportData.reports);
       }
       setError('');
     } catch (error) {
@@ -503,7 +516,10 @@ function Admin() {
               className={tab === 'source-reports' ? 'active' : 'secondary'}
               onClick={() => setTab('source-reports')}
             >
-              Source reports ({sourceReports.filter((x) => x.status === 'open').length})
+              Source reports (
+              {sourceReports.filter((x) => x.status === 'open').length +
+                assetReports.filter((x) => x.status === 'open').length}
+              )
             </button>
             <button
               className={tab === 'sources' ? 'active' : 'secondary'}
@@ -578,18 +594,20 @@ function Admin() {
               <>
                 <h1>Source font reports</h1>
                 <p className="muted">
-                  A report pauses its source link immediately. Review the source page and evidence
-                  before restoring a link.
+                  A report temporarily removes the affected font from public downloads. Review its
+                  source and evidence before restoring access.
                 </p>
-                {sourceReports.map((report) => (
-                  <SourceReportReview
-                    key={report.id + report.status}
-                    report={report}
-                    csrf={csrf}
-                    onUpdate={refresh}
-                  />
-                ))}
-                {!sourceReports.length ? (
+                {[...sourceReports, ...assetReports]
+                  .sort((a, b) => b.createdAt - a.createdAt)
+                  .map((report) => (
+                    <SourceReportReview
+                      key={report.id + report.status}
+                      report={report}
+                      csrf={csrf}
+                      onUpdate={refresh}
+                    />
+                  ))}
+                {!sourceReports.length && !assetReports.length ? (
                   <p className="empty">No source reports received.</p>
                 ) : null}
               </>

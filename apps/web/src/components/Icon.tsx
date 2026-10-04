@@ -9,6 +9,7 @@ type Name =
   | 'book'
   | 'lock'
   | 'wifi'
+  | 'search'
   | 'close';
 const paths: Record<Name, string> = {
   type: 'M4 5h16M12 5v15M8 20h8',
@@ -21,6 +22,7 @@ const paths: Record<Name, string> = {
   book: 'M12 5v16M12 5C9 3 5 3 2 5v15c3-2 7-2 10 1 3-3 7-3 10-1V5c-3-2-7-2-10 0',
   lock: 'M6 10h12v11H6zM8 10V6a4 4 0 0 1 8 0v4',
   wifi: 'M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0M9 16a5 5 0 0 1 6 0M12 20h.01',
+  search: 'm20 20-4-4m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z',
   close: 'm6 6 12 12M6 18 18 6',
 };
 export function Icon({ name, size = 20 }: { name: Name; size?: number }) {

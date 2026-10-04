@@ -41,6 +41,16 @@ export const sourceFontReportSchema = z
     goodFaith: z.literal(true),
   })
   .strict();
+export const fontAssetReportSchema = z
+  .object({
+    assetId: z.string().regex(/^local-font-[a-f0-9]{24}$/),
+    name: z.string().trim().min(2).max(100),
+    email: z.email().max(254),
+    details: z.string().trim().min(20).max(5000),
+    evidenceUrl: https,
+    goodFaith: z.literal(true),
+  })
+  .strict();
 export const draftSchema = z
   .object({ title: z.string().trim().min(1).max(100), text: z.string().max(200000) })
   .strict();
@@ -98,6 +108,39 @@ export type ExternalFontSource = {
   rightsStatus: 'unverified' | 'cleared' | 'restricted' | 'rights-review';
   assetStored: number;
   importedAt: number;
+};
+export type LocalFontAsset = {
+  id: string;
+  filename: string;
+  name: string;
+  family: string;
+  variant: string;
+  sourceCategory: string;
+  encoding: string;
+  sourceId: string | null;
+  mapVersion: string;
+  sourceNumericId: number | null;
+  sourceUrl: string;
+  reportedLicence: string;
+  copyrightText: string;
+  rightsStatus: ExternalFontSource['rightsStatus'];
+  assetStored: 1;
+  importedAt: number;
+};
+export type FontAssetReport = Omit<
+  z.infer<typeof fontAssetReportSchema>,
+  'goodFaith' | 'assetId'
+> & {
+  id: string;
+  status: 'open' | 'resolved';
+  resolution: string;
+  createdAt: number;
+  assetId: string;
+  sourceId: string;
+  sourceName: string;
+  sourceUrl: string;
+  reportedLicence: string;
+  rightsStatus: ExternalFontSource['rightsStatus'];
 };
 
 export function externalFontDownloadUrl(
