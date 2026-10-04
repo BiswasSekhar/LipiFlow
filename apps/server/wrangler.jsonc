@@ -4,9 +4,9 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-03",
   "vars": {
-    "APP_ORIGIN": "https://replace-with-your-vercel-domain",
-    "APP_ORIGINS": "https://replace-with-your-vercel-domain",
-    "FIREBASE_PROJECT_ID": "replace-with-firebase-project-id",
+    "APP_ORIGIN": "https://lipiflow.vercel.app",
+    "APP_ORIGINS": "https://lipiflow.vercel.app",
+    "FIREBASE_PROJECT_ID": "",
   },
   "d1_databases": [
     {
