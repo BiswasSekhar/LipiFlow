@@ -24,7 +24,7 @@
     "hosted:setup": "pnpm --filter @lipiflow/server migrate:local",
     "hosted:check": "pnpm --filter @lipiflow/server check && pnpm --filter @lipiflow/admin typecheck",
     "vercel:check": "pnpm --filter @lipiflow/server exec tsc --noEmit -p ../../api/tsconfig.json",
-    "deploy:cloudflare": "pnpm --filter @lipiflow/server deploy",
+    "deploy:cloudflare": "pnpm --filter @lipiflow/server exec wrangler deploy --env=\"\"",
     "test:hosted": "playwright test --config playwright.hosted.config.ts"
   },
   "devDependencies": {
