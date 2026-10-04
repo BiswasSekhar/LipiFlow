@@ -1426,6 +1426,15 @@ h1 {
   color: var(--muted);
   margin-top: 8px;
 }
+.font-download-links {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  padding-top: 7px;
+}
+.font-download-links a {
+  font-size: 11px;
+}
 .catalogue-specimen {
   font-size: var(--specimen-size, 32px);
   line-height: 2.1;
@@ -1835,6 +1844,90 @@ input[type='range'] {
   padding: 20px 0 17px;
   border-bottom: 1px solid var(--line);
 }
+.external-font-index {
+  margin-top: 18px;
+  padding: 24px 0 8px;
+  border-top: 1px solid var(--line);
+}
+.external-font-index-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.external-font-index-heading h2 {
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 620;
+}
+.external-font-index-note {
+  max-width: 680px;
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.external-font-family {
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+}
+.external-font-family > summary {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+}
+.external-font-family > summary::-webkit-details-marker {
+  display: none;
+}
+.external-font-family > summary::after {
+  content: '+';
+  margin-left: 12px;
+  color: var(--muted);
+  font-size: 18px;
+}
+.external-font-family[open] > summary::after {
+  content: '−';
+}
+.external-font-family > summary h3 {
+  font-size: 14px;
+  font-weight: 590;
+}
+.external-font-items {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.external-font-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+.external-font-copy {
+  min-width: 0;
+}
+.external-font-copy h4 {
+  font-size: 13px;
+  font-weight: 570;
+}
+.external-font-copy > p {
+  margin-top: 3px;
+}
+.external-font-rights {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.external-font-rights p {
+  max-width: 760px;
+  padding-top: 4px;
+  line-height: 1.55;
+}
+.external-font-download {
+  white-space: nowrap;
+}
 .family-row-heading,
 .family-row-footer,
 .font-detail-heading,
@@ -2040,6 +2133,17 @@ input[type='range'] {
   }
   .font-family-row {
     padding-block: 17px;
+  }
+  .external-font-index-heading {
+    align-items: flex-start;
+  }
+  .external-font-item {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .external-font-download {
+    justify-content: center;
   }
   .family-row-footer {
     align-items: flex-end;

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { apiUrl } from '@lipiflow/library/client';
-import { categories, encodings, type PublishedFont } from '@lipiflow/library';
+import {
+  categories,
+  encodings,
+  externalFontDownloadUrl,
+  type ExternalFontSource,
+  type PublishedFont,
+} from '@lipiflow/library';
 import { fonts } from '../catalogue';
 import { legacyFonts, type OutputMode } from '../legacy';
 import { hostedEdition, type LibraryStore } from '../hosted';
@@ -13,6 +19,14 @@ type FontFamily = {
   encoding: string;
   category: string;
   fonts: PublishedFont[];
+};
+
+type SourceFontFamily = {
+  key: string;
+  name: string;
+  encoding: string;
+  category: string;
+  fonts: ExternalFontSource[];
 };
 
 function groupByFamily(items: PublishedFont[]): FontFamily[] {
@@ -34,6 +48,34 @@ function groupByFamily(items: PublishedFont[]): FontFamily[] {
     .map((group) => ({
       ...group,
       fonts: group.fonts.sort((a, b) => a.variant.localeCompare(b.variant)),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function groupSourceFonts(items: ExternalFontSource[]): SourceFontFamily[] {
+  const groups = new Map<string, SourceFontFamily>();
+  for (const font of items) {
+    const name = font.family.trim() || font.name;
+    const key = `${font.encoding}:${name.toLocaleLowerCase()}`;
+    const group = groups.get(key) ?? {
+      key,
+      name,
+      encoding: font.encoding,
+      category: font.sourceCategory || 'General',
+      fonts: [],
+    };
+    group.fonts.push(font);
+    groups.set(key, group);
+  }
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      fonts: group.fonts.sort(
+        (a, b) =>
+          a.variant.localeCompare(b.variant) ||
+          a.name.localeCompare(b.name) ||
+          a.sourceNumericId - b.sourceNumericId,
+      ),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -280,9 +322,27 @@ export function Fonts({
   const remote = store.library.filter((font) =>
     match(`${font.name} ${font.family} ${font.authorName}`, font.encoding, font.category, font.id),
   );
+  const sourceFonts = store.sourceFonts.filter((font) =>
+    match(
+      `${font.name} ${font.family} ${font.variant} ${font.reportedLicence} ${font.sourceNumericId}`,
+      font.encoding,
+      font.sourceCategory || 'General',
+      font.sourceId,
+    ),
+  );
   const remoteFamilies = groupByFamily(remote);
+  const sourceFamilies = groupSourceFonts(sourceFonts);
   const allFamilies = groupByFamily(store.library);
   const detail = allFamilies.find((group) => group.key === detailKey);
+  const encodingOptions = [
+    ...new Set([...encodings, ...store.sourceFonts.map((font) => font.encoding)]),
+  ];
+  const categoryOptions = [
+    ...new Set([
+      ...categories,
+      ...store.sourceFonts.map((font) => font.sourceCategory).filter(Boolean),
+    ]),
+  ];
   function favourite(id: string) {
     if (!store.user) {
       onSignIn();
@@ -297,7 +357,9 @@ export function Fonts({
     >
       <div className="page-heading section-heading">
         <h1>Fonts</h1>
-        <span className="muted small">{bundled.length + legacy.length + remote.length} fonts</span>
+        <span className="muted small">
+          {bundled.length + legacy.length + remote.length + sourceFonts.length} fonts
+        </span>
       </div>
       {detail ? (
         <FontFamilyDetail
@@ -322,7 +384,7 @@ export function Fonts({
               onChange={(event) => setQuery(event.target.value)}
             />
             <div className="encoding-filter" role="group" aria-label="Filter by encoding">
-              {['All', ...encodings].map((value) => (
+              {['All', ...encodingOptions].map((value) => (
                 <button
                   key={value}
                   className={`filter-chip ${encoding === value ? 'selected' : ''}`}
@@ -339,7 +401,7 @@ export function Fonts({
               onChange={(event) => setCategory(event.target.value)}
             >
               <option value="All">All categories</option>
-              {categories.map((value) => (
+              {categoryOptions.map((value) => (
                 <option key={value}>{value}</option>
               ))}
             </select>
@@ -374,12 +436,31 @@ export function Fonts({
               <article className="catalogue-row" key={font.id}>
                 <div className="catalogue-meta">
                   <h2>{font.name}</h2>
-                  <span className="muted small">Unicode · {font.variant}</span>
-                  <details>
-                    <summary>Licence</summary>
-                    <a href={font.licence.notice} target="_blank" rel="noreferrer">
-                      {font.licence.spdx}
-                    </a>
+                  <span className="muted small">
+                    Unicode · {font.variant} · {font.licence.spdx}
+                  </span>
+                  <details className="font-downloads">
+                    <summary>License &amp; downloads</summary>
+                    <div className="font-download-links">
+                      <a href={font.assets.regular} download={`${font.id}-regular.woff2`}>
+                        Download Regular WOFF2
+                      </a>
+                      {font.assets.semibold ? (
+                        <a href={font.assets.semibold} download={`${font.id}-semibold.woff2`}>
+                          Download Semibold WOFF2
+                        </a>
+                      ) : null}
+                      <a href={font.licence.notice} target="_blank" rel="noreferrer">
+                        SIL OFL 1.1 license notice
+                      </a>
+                      <a
+                        href="https://github.com/notofonts/malayalam/releases"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Official full font releases ↗
+                      </a>
+                    </div>
                   </details>
                 </div>
                 <p className="catalogue-specimen" lang="ml" style={{ fontFamily: font.cssFamily }}>
@@ -476,7 +557,79 @@ export function Fonts({
                 </div>
               </article>
             ))}
-            {!bundled.length && !legacy.length && !remoteFamilies.length ? (
+            {sourceFonts.length ? (
+              <section className="external-font-index" aria-labelledby="external-font-index-title">
+                <header className="external-font-index-heading">
+                  <div>
+                    <p className="eyebrow">Original source</p>
+                    <h2 id="external-font-index-title">Malayalamfont.com</h2>
+                  </div>
+                  <span className="family-style-count">
+                    {sourceFonts.length} {sourceFonts.length === 1 ? 'listing' : 'listings'}
+                  </span>
+                </header>
+                <p className="external-font-index-note">
+                  These files stay on the original site. Rights have not been verified by LipiFlow;
+                  check the source terms before using a font.
+                </p>
+                {sourceFamilies.map((group) => (
+                  <details className="external-font-family" key={group.key}>
+                    <summary className="family-row-heading">
+                      <div>
+                        <h3>{group.name}</h3>
+                        <p className="muted small">
+                          {group.encoding} · {group.category}
+                        </p>
+                      </div>
+                      <span className="family-style-count">
+                        {group.fonts.length} {group.fonts.length === 1 ? 'font' : 'fonts'}
+                      </span>
+                    </summary>
+                    <div className="external-font-items">
+                      {group.fonts.map((font) => {
+                        const downloadUrl = externalFontDownloadUrl(font);
+                        return (
+                          <article className="external-font-item" key={font.sourceId}>
+                            <div className="external-font-copy">
+                              <h4>{font.name}</h4>
+                              <p className="muted small">
+                                {font.variant || 'Style not listed'} · {font.reportedLicence}
+                              </p>
+                              {font.copyrightText ? (
+                                <details className="external-font-rights">
+                                  <summary>Rights note</summary>
+                                  <p>{font.copyrightText}</p>
+                                </details>
+                              ) : null}
+                            </div>
+                            {font.rightsStatus === 'restricted' ? (
+                              <span className="muted small">Download unavailable</span>
+                            ) : font.rightsStatus !== 'cleared' ? (
+                              <span className="muted small">
+                                Download unavailable until rights are verified
+                              </span>
+                            ) : downloadUrl ? (
+                              <a
+                                className="button secondary external-font-download"
+                                href={downloadUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Download ${font.name} from malayalamfont.com`}
+                              >
+                                Download at source ↗
+                              </a>
+                            ) : (
+                              <span className="muted small">Source link unavailable</span>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </details>
+                ))}
+              </section>
+            ) : null}
+            {!bundled.length && !legacy.length && !remoteFamilies.length && !sourceFonts.length ? (
               <p className="empty-state">No fonts match. Try another name or category.</p>
             ) : null}
           </div>

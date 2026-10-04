@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Account, PublishedFont } from '@lipiflow/library';
+import type { Account, ExternalFontSource, PublishedFont } from '@lipiflow/library';
 import { api, apiUrl, authHeaders } from '@lipiflow/library/client';
 import {
   auth,
@@ -15,7 +15,8 @@ export function useLibrary() {
   const [user, setUser] = useState<Account | null>(null),
     [csrf, setCsrf] = useState('');
   const [favourites, setFavourites] = useState<string[]>([]),
-    [library, setLibrary] = useState<PublishedFont[]>([]);
+    [library, setLibrary] = useState<PublishedFont[]>([]),
+    [sourceFonts, setSourceFonts] = useState<ExternalFontSource[]>([]);
   const [config, setConfig] = useState({ local: false, loginAvailable: false }),
     [error, setError] = useState('');
   const [families, setFamilies] = useState<Record<string, string>>({});
@@ -55,10 +56,11 @@ export function useLibrary() {
   }, []);
   async function refresh() {
     try {
-      const [me, fonts, settings] = await Promise.all([
+      const [me, fonts, settings, sourceCatalogue] = await Promise.all([
         api<{ user: Account | null; csrf: string; favourites?: string[] }>('/api/me'),
         api<{ fonts: PublishedFont[] }>('/api/fonts'),
         api<typeof config>('/api/config'),
+        api<{ fonts: ExternalFontSource[] }>('/api/source-fonts').catch(() => ({ fonts: [] })),
       ]);
       if (!active.current) return;
       const available = new Set(fonts.fonts.map((font) => font.id));
@@ -75,6 +77,7 @@ export function useLibrary() {
       setCsrf(me.csrf);
       if (!auth?.currentUser) setFavourites(me.favourites ?? []);
       setLibrary(fonts.fonts);
+      setSourceFonts(sourceCatalogue.fonts);
       setConfig({ ...settings, loginAvailable: settings.loginAvailable && firebaseConfigured });
       setError('');
     } catch {
@@ -118,6 +121,18 @@ export function useLibrary() {
     void task.finally(() => pending.current.delete(font.id)).catch(() => {});
     return task;
   }
-  return { user, csrf, favourites, library, config, error, families, refresh, favourite, load };
+  return {
+    user,
+    csrf,
+    favourites,
+    library,
+    sourceFonts,
+    config,
+    error,
+    families,
+    refresh,
+    favourite,
+    load,
+  };
 }
 export type LibraryStore = ReturnType<typeof useLibrary>;

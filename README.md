@@ -78,8 +78,11 @@ Desktop and mobile use one editable Malayalam box. Type Manglish directly in it;
 conversion preserves the caret and supports selection replacement, undo/redo and
 browser composition. Choose Unicode, FML or ML-TT above the same editor. Load the
 exact matching legacy font to see its appearance; copy and download use the selected
-encoding even when its local font has not been loaded. The compact Fonts page searches by name and filters by category and encoding.
-Previews use the current editor text. Open local `.ttf`/`.otf` files for real
+encoding even when its local font has not been loaded. The compact Fonts page
+searches by name and filters by category and encoding.
+It links downloads for the bundled Malayalam WOFF2 web fonts, each font's SIL OFL
+notice and the official full-font releases. Previews use the current editor text.
+Open local `.ttf`/`.otf` files for real
 Unicode or checked Karthika previews; unknown encodings keep a character proof.
 These local files are not uploaded or installed. Use the Type editor’s FML/ML-TT controls for checked Karthika conversion.
 The supplied collection was [inspected locally](docs/LOCAL_FONT_INVENTORY.md).

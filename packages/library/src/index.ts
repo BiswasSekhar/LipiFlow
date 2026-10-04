@@ -80,6 +80,25 @@ export type ExternalFontSource = {
   importedAt: number;
 };
 
+export function externalFontDownloadUrl(
+  source: Pick<ExternalFontSource, 'sourceUrl' | 'rightsStatus'>,
+): string | null {
+  if (source.rightsStatus !== 'cleared') return null;
+  try {
+    const url = new URL(source.sourceUrl);
+    if (
+      url.protocol !== 'https:' ||
+      url.hostname !== 'www.malayalamfont.com' ||
+      url.pathname !== '/download.php' ||
+      !/^\d+$/.test(url.searchParams.get('id') ?? '')
+    )
+      return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function sha256(bytes: ArrayBuffer | string) {
   const data = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))

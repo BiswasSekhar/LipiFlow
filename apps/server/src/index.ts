@@ -6,7 +6,9 @@ import {
   sha256,
   uploadSchema,
   type Account,
+  type ExternalFontSource,
   type LibraryFont,
+  externalFontDownloadUrl,
 } from '@lipiflow/library';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
@@ -258,6 +260,17 @@ async function route(request: Request, env: Env) {
       "SELECT * FROM fonts WHERE status='approved' ORDER BY createdAt DESC LIMIT 1000",
     ).all<StoredFont>();
     return json({ fonts: fonts.results.map(publicFont) });
+  }
+  if (path === '/api/source-fonts' && method === 'GET') {
+    const sources = await env.DB.prepare(
+      'SELECT sourceId,sourceNumericId,name,family,variant,sourceCategory,encoding,sourceUrl,reportedLicence,copyrightText,rightsStatus,assetStored,importedAt FROM externalFontSources ORDER BY name COLLATE NOCASE LIMIT 1000',
+    ).all<ExternalFontSource>();
+    return json({
+      fonts: sources.results.map((font) => ({
+        ...font,
+        sourceUrl: externalFontDownloadUrl(font) ?? '',
+      })),
+    });
   }
   if (path === '/api/me/fonts' && method === 'GET') {
     const user = await authenticated(request, env);
