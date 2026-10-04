@@ -569,8 +569,8 @@ export function Fonts({
                   </span>
                 </header>
                 <p className="external-font-index-note">
-                  These files stay on the original site. Rights have not been verified by LipiFlow;
-                  check the source terms before using a font.
+                  These files stay on the original site. Download links appear only for entries with
+                  verified redistribution permission.
                 </p>
                 {sourceFamilies.map((group) => (
                   <details className="external-font-family" key={group.key}>
