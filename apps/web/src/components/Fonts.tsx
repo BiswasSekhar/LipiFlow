@@ -12,6 +12,8 @@ import { legacyFonts, type OutputMode } from '../legacy';
 import { hostedEdition, type LibraryStore } from '../hosted';
 import { LocalFonts } from './LocalFonts';
 import { ReportFont } from './ReportFont';
+import { ReportSourceFont } from './ReportSourceFont';
+import './source-fonts.css';
 
 type FontFamily = {
   key: string;
@@ -306,6 +308,7 @@ export function Fonts({
     [size, setSize] = useState(32),
     [detailKey, setDetailKey] = useState(''),
     [report, setReport] = useState<PublishedFont | null>(null),
+    [sourceReport, setSourceReport] = useState<ExternalFontSource | null>(null),
     [notice, setNotice] = useState('');
   const preview = sample.trim() || 'മലയാളം, മനസ്സിൽ നിന്ന്.';
   const match = (name: string, type: string, group: string, id: string) =>
@@ -569,8 +572,9 @@ export function Fonts({
                   </span>
                 </header>
                 <p className="external-font-index-note">
-                  These files stay on the original site. Download links appear only for entries with
-                  verified redistribution permission.
+                  Source downloads open on Malayalamfont.com and may require its CAPTCHA. Review the
+                  source rights details before use. A copyright report disables that listing in
+                  LipiFlow while it is reviewed.
                 </p>
                 {sourceFamilies.map((group) => (
                   <details className="external-font-family" key={group.key}>
@@ -602,25 +606,35 @@ export function Fonts({
                                 </details>
                               ) : null}
                             </div>
-                            {font.rightsStatus === 'restricted' ? (
-                              <span className="muted small">Download unavailable</span>
-                            ) : font.rightsStatus !== 'cleared' ? (
-                              <span className="muted small">
-                                Download unavailable until rights are verified
-                              </span>
-                            ) : downloadUrl ? (
-                              <a
-                                className="button secondary external-font-download"
-                                href={downloadUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`Download ${font.name} from malayalamfont.com`}
+                            <div className="external-font-actions">
+                              {downloadUrl ? (
+                                <a
+                                  className="button secondary external-font-download"
+                                  href={downloadUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label={`Open ${font.name} source details and download`}
+                                >
+                                  Details &amp; download ↗
+                                </a>
+                              ) : (
+                                <span className="muted small">
+                                  {font.rightsStatus === 'rights-review'
+                                    ? 'Download paused while reported'
+                                    : font.rightsStatus === 'restricted'
+                                      ? 'Download blocked after review'
+                                      : 'Download unavailable'}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className="text-button external-font-report"
+                                onClick={() => setSourceReport(font)}
+                                aria-label={`Report copyright concern for ${font.name}`}
                               >
-                                Download at source ↗
-                              </a>
-                            ) : (
-                              <span className="muted small">Source link unavailable</span>
-                            )}
+                                Report copyright
+                              </button>
+                            </div>
                           </article>
                         );
                       })}
@@ -644,6 +658,13 @@ export function Fonts({
         </>
       )}
       {report ? <ReportFont font={report} onClose={() => setReport(null)} /> : null}
+      {sourceReport ? (
+        <ReportSourceFont
+          font={sourceReport}
+          onClose={() => setSourceReport(null)}
+          onReported={store.refresh}
+        />
+      ) : null}
     </section>
   );
 }

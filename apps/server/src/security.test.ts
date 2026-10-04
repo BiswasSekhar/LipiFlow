@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { localAllowed, requireOrigin } from './index';
-import { inspectFont, reportSchema, uploadSchema } from '@lipiflow/library';
+import { inspectFont, reportSchema, sourceFontReportSchema, uploadSchema } from '@lipiflow/library';
 test('local sign-in requires the local flag and loopback HTTP', () => {
   assert.equal(localAllowed({ LIPIFLOW_LOCAL: '1' }, new URL('http://127.0.0.1:8787')), true);
   for (const url of ['https://example.com', 'http://example.com', 'https://127.0.0.1'])
@@ -85,6 +85,26 @@ test('uploads and reports require permission, evidence and bounded fields', () =
       evidenceUrl: 'javascript:alert(1)',
       goodFaith: true,
     }).success,
+    false,
+  );
+});
+test('source copyright reports require a valid source id and evidence', () => {
+  const report = {
+    sourceId: 'malayalamfont-1000',
+    name: 'Font owner',
+    email: 'owner@example.com',
+    details: 'I own this font and did not grant distribution through this listing.',
+    evidenceUrl: 'https://example.com/ownership',
+    goodFaith: true,
+  };
+  assert.equal(sourceFontReportSchema.safeParse(report).success, true);
+  assert.equal(
+    sourceFontReportSchema.safeParse({ ...report, sourceId: 'malayalamfont-1/../../admin' })
+      .success,
+    false,
+  );
+  assert.equal(
+    sourceFontReportSchema.safeParse({ ...report, evidenceUrl: 'javascript:alert(1)' }).success,
     false,
   );
 });

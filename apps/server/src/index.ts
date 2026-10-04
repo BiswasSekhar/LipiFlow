@@ -3,11 +3,13 @@ import {
   inspectFont,
   maxFontBytes,
   reportSchema,
+  sourceFontReportSchema,
   sha256,
   uploadSchema,
   type Account,
   type ExternalFontSource,
   type LibraryFont,
+  type SourceFontReport,
   externalFontDownloadUrl,
 } from '@lipiflow/library';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
@@ -272,6 +274,31 @@ async function route(request: Request, env: Env) {
       })),
     });
   }
+  const sourceReport = path.match(/^\/api\/source-fonts\/(malayalamfont-\d{1,12})\/reports$/);
+  if (sourceReport && method === 'POST') {
+    if (!localAllowed(env, url) && !env.RATE_SALT) fail(503, 'Reports are not configured yet.');
+    await limited(
+      env,
+      'source-report:' + (request.headers.get('CF-Connecting-IP') ?? 'local'),
+      localAllowed(env, url) ? 100 : 5,
+    );
+    const data = parsed(sourceFontReportSchema.safeParse(await body(request)));
+    if (data.sourceId !== sourceReport[1]) fail(400, 'The report does not match this font.');
+    const source = await env.DB.prepare('SELECT sourceId FROM externalFontSources WHERE sourceId=?')
+      .bind(data.sourceId)
+      .first<{ sourceId: string }>();
+    if (!source) fail(404, 'Source font not found.');
+    const id = crypto.randomUUID();
+    await env.DB.batch([
+      env.DB.prepare(
+        'INSERT INTO sourceFontReports(id,sourceId,name,email,details,evidenceUrl,createdAt) VALUES(?,?,?,?,?,?,?)',
+      ).bind(id, data.sourceId, data.name, data.email, data.details, data.evidenceUrl, now()),
+      env.DB.prepare(
+        "UPDATE externalFontSources SET rightsStatus='rights-review' WHERE sourceId=?",
+      ).bind(data.sourceId),
+    ]);
+    return json({ id }, 201);
+  }
   if (path === '/api/me/fonts' && method === 'GET') {
     const user = await authenticated(request, env);
     return json({
@@ -470,6 +497,57 @@ async function route(request: Request, env: Env) {
           ).all()
         ).results,
       });
+    if (path === '/api/admin/source-font-reports' && method === 'GET')
+      return json({
+        reports: (
+          await env.DB.prepare(
+            'SELECT r.*,f.name AS sourceName,f.sourceUrl,f.reportedLicence,f.rightsStatus FROM sourceFontReports r JOIN externalFontSources f ON f.sourceId=r.sourceId ORDER BY r.createdAt DESC LIMIT 1000',
+          ).all<SourceFontReport>()
+        ).results,
+      });
+    const sourceReportReview = path.match(/^\/api\/admin\/source-font-reports\/([a-z0-9-]+)$/);
+    if (sourceReportReview && method === 'PATCH') {
+      const data = await body(request);
+      if (
+        typeof data.resolution !== 'string' ||
+        data.resolution.trim().length < 10 ||
+        data.resolution.length > 5000 ||
+        typeof data.restoreDownload !== 'boolean'
+      )
+        fail(400, 'Add a resolution note and choose whether to restore the source link.');
+      const saved = await env.DB.prepare('SELECT sourceId FROM sourceFontReports WHERE id=?')
+        .bind(sourceReportReview[1])
+        .first<{ sourceId: string }>();
+      if (!saved) fail(404, 'Source report not found.');
+      const otherOpen = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM sourceFontReports WHERE sourceId=? AND status='open' AND id<>?",
+      )
+        .bind(saved.sourceId, sourceReportReview[1])
+        .first<{ count: number }>();
+      const nextRightsStatus = otherOpen?.count
+        ? 'rights-review'
+        : data.restoreDownload
+          ? 'unverified'
+          : 'restricted';
+      await env.DB.batch([
+        env.DB.prepare(
+          "UPDATE sourceFontReports SET status='resolved',resolution=? WHERE id=?",
+        ).bind(data.resolution.trim(), sourceReportReview[1]),
+        env.DB.prepare('UPDATE externalFontSources SET rightsStatus=? WHERE sourceId=?').bind(
+          nextRightsStatus,
+          saved.sourceId,
+        ),
+        env.DB.prepare('INSERT INTO audit VALUES(?,?,?,?,?,?)').bind(
+          crypto.randomUUID(),
+          user.id,
+          saved.sourceId,
+          data.restoreDownload ? 'source-report-restore' : 'source-report-block',
+          data.resolution.trim(),
+          now(),
+        ),
+      ]);
+      return json({ ok: true });
+    }
     const review = path.match(/^\/api\/admin\/fonts\/([a-z0-9-]+)$/);
     if (review && method === 'PATCH') {
       const data = await body(request);

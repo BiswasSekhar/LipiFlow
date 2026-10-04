@@ -8,7 +8,13 @@ import {
   onAuthStateChanged,
   signInGoogle,
 } from '@lipiflow/firebase';
-import type { Account, CopyrightReport, ExternalFontSource, LibraryFont } from '@lipiflow/library';
+import type {
+  Account,
+  CopyrightReport,
+  ExternalFontSource,
+  LibraryFont,
+  SourceFontReport,
+} from '@lipiflow/library';
 import '@lipiflow/design-tokens/tokens.css';
 import './styles.css';
 
@@ -233,6 +239,87 @@ function ReportReview({
   );
 }
 
+function SourceReportReview({
+  report,
+  csrf,
+  onUpdate,
+}: {
+  report: SourceFontReport;
+  csrf: string;
+  onUpdate(): Promise<void>;
+}) {
+  const [resolution, setResolution] = useState(''),
+    [restoreDownload, setRestoreDownload] = useState(false),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  return (
+    <article className="review-row">
+      <div className="row-heading">
+        <h2>{report.sourceName}</h2>
+        <span>
+          {report.status} · {report.rightsStatus}
+        </span>
+      </div>
+      <p>
+        {report.name} · {report.email}
+      </p>
+      <p>{report.details}</p>
+      <p className="muted">Reported source licence: {report.reportedLicence}</p>
+      <a href={report.sourceUrl} target="_blank" rel="noreferrer">
+        Review source details ↗
+      </a>
+      <p>
+        <a href={report.evidenceUrl} target="_blank" rel="noreferrer">
+          Ownership evidence ↗
+        </a>
+      </p>
+      <p className="muted">
+        Source: {report.sourceId} · Report: {report.id}
+      </p>
+      {report.status === 'open' ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            setBusy(true);
+            void api(
+              '/api/admin/source-font-reports/' + report.id,
+              { method: 'PATCH', body: JSON.stringify({ resolution, restoreDownload }) },
+              csrf,
+            )
+              .then(onUpdate)
+              .catch((error) => setError(error.message))
+              .finally(() => setBusy(false));
+          }}
+        >
+          <label>
+            Resolution note
+            <textarea
+              aria-label="Source report resolution note"
+              minLength={10}
+              maxLength={5000}
+              value={resolution}
+              onChange={(event) => setResolution(event.target.value)}
+              required
+            />
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={restoreDownload}
+              onChange={(event) => setRestoreDownload(event.target.checked)}
+            />
+            Restore the source link after review
+          </label>
+          <button disabled={busy}>Resolve report</button>
+        </form>
+      ) : (
+        <p>{report.resolution}</p>
+      )}
+      {error ? <p role="alert">{error}</p> : null}
+    </article>
+  );
+}
+
 function makeSourceCsv(fonts: ExternalFontSource[]) {
   const columns: (keyof ExternalFontSource)[] = [
     'sourceId',
@@ -261,6 +348,7 @@ function Admin() {
     [fonts, setFonts] = useState<LibraryFont[]>([]),
     [reports, setReports] = useState<CopyrightReport[]>([]),
     [sourceFonts, setSourceFonts] = useState<ExternalFontSource[]>([]),
+    [sourceReports, setSourceReports] = useState<SourceFontReport[]>([]),
     [tab, setTab] = useState('fonts'),
     [targetUid, setTargetUid] = useState(''),
     [targetRole, setTargetRole] = useState<'user' | 'admin'>('user'),
@@ -286,6 +374,10 @@ function Admin() {
         setReports(data.reports);
         const sources = await api<{ fonts: ExternalFontSource[] }>('/api/admin/source-fonts');
         setSourceFonts(sources.fonts);
+        const sourceReportData = await api<{ reports: SourceFontReport[] }>(
+          '/api/admin/source-font-reports',
+        );
+        setSourceReports(sourceReportData.reports);
       }
       setError('');
     } catch (error) {
@@ -408,6 +500,12 @@ function Admin() {
               Copyright reports ({reports.filter((x) => x.status === 'open').length})
             </button>
             <button
+              className={tab === 'source-reports' ? 'active' : 'secondary'}
+              onClick={() => setTab('source-reports')}
+            >
+              Source reports ({sourceReports.filter((x) => x.status === 'open').length})
+            </button>
+            <button
               className={tab === 'sources' ? 'active' : 'secondary'}
               onClick={() => setTab('sources')}
             >
@@ -475,6 +573,25 @@ function Admin() {
                   />
                 ))}
                 {!reports.length ? <p className="empty">No reports received.</p> : null}
+              </>
+            ) : tab === 'source-reports' ? (
+              <>
+                <h1>Source font reports</h1>
+                <p className="muted">
+                  A report pauses its source link immediately. Review the source page and evidence
+                  before restoring a link.
+                </p>
+                {sourceReports.map((report) => (
+                  <SourceReportReview
+                    key={report.id + report.status}
+                    report={report}
+                    csrf={csrf}
+                    onUpdate={refresh}
+                  />
+                ))}
+                {!sourceReports.length ? (
+                  <p className="empty">No source reports received.</p>
+                ) : null}
               </>
             ) : tab === 'members' ? (
               <>
@@ -559,8 +676,8 @@ function Admin() {
                   </button>
                 </div>
                 <p className="muted">
-                  Source metadata only. Redistribution rights have not been checked; no font files
-                  are stored or published from this catalogue.
+                  Font details and source links only; binaries are not stored in R2. Unreported
+                  listings link to the source site. Reports pause a link until reviewed.
                 </p>
                 {sourceFonts
                   .filter((font) =>
@@ -572,7 +689,13 @@ function Admin() {
                     <article className="review-row source-row" key={font.sourceId}>
                       <div className="row-heading">
                         <h2>{font.name}</h2>
-                        <span>Rights unverified</span>
+                        <span>
+                          {font.rightsStatus === 'rights-review'
+                            ? 'Download paused · report open'
+                            : font.rightsStatus === 'restricted'
+                              ? 'Download blocked'
+                              : 'Source link available · rights unverified'}
+                        </span>
                       </div>
                       <p className="muted">
                         {font.encoding} · {font.sourceCategory} ·{' '}

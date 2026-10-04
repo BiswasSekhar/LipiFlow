@@ -31,6 +31,16 @@ export const reportSchema = z
     goodFaith: z.literal(true),
   })
   .strict();
+export const sourceFontReportSchema = z
+  .object({
+    sourceId: z.string().regex(/^malayalamfont-\d{1,12}$/),
+    name: z.string().trim().min(2).max(100),
+    email: z.email().max(254),
+    details: z.string().trim().min(20).max(5000),
+    evidenceUrl: https,
+    goodFaith: z.literal(true),
+  })
+  .strict();
 export const draftSchema = z
   .object({ title: z.string().trim().min(1).max(100), text: z.string().max(200000) })
   .strict();
@@ -64,6 +74,16 @@ export type CopyrightReport = z.infer<typeof reportSchema> & {
   resolution: string;
   createdAt: number;
 };
+export type SourceFontReport = Omit<z.infer<typeof sourceFontReportSchema>, 'goodFaith'> & {
+  id: string;
+  status: 'open' | 'resolved';
+  resolution: string;
+  createdAt: number;
+  sourceName: string;
+  sourceUrl: string;
+  reportedLicence: string;
+  rightsStatus: ExternalFontSource['rightsStatus'];
+};
 export type ExternalFontSource = {
   sourceId: string;
   sourceNumericId: number;
@@ -83,7 +103,7 @@ export type ExternalFontSource = {
 export function externalFontDownloadUrl(
   source: Pick<ExternalFontSource, 'sourceUrl' | 'rightsStatus'>,
 ): string | null {
-  if (source.rightsStatus !== 'cleared') return null;
+  if (source.rightsStatus === 'restricted' || source.rightsStatus === 'rights-review') return null;
   try {
     const url = new URL(source.sourceUrl);
     if (

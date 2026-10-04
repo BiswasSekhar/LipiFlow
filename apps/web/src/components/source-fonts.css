@@ -1,0 +1,17 @@
+.external-font-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.external-font-report {
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .external-font-actions {
+    justify-content: flex-start;
+  }
+}
