@@ -1,0 +1,13 @@
+node_modules
+target
+**/dist
+core/lipiflow-wasm/pkg
+artifacts
+test-results
+playwright-report
+pnpm-lock.yaml
+data/mozhi/reference
+data/mozhi/mozhi-2.v1.json
+apps/web/public/data
+apps/web/public/fonts
+apps/web/public/licenses

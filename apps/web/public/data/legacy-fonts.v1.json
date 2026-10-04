@@ -1,0 +1,20 @@
+[
+  {
+    "id": "fml-karthika",
+    "mode": "FML",
+    "family": "FML-TTKarthika",
+    "fileName": "FMLKR0NTT.ttf",
+    "sha256": "cbbe4be215ea8451c72cc592efa451013e9552c75964cd2e91bb8874ffb34c3d",
+    "variant": "Regular",
+    "mapVersion": "karthika/1.0.0"
+  },
+  {
+    "id": "mltt-karthika",
+    "mode": "ML-TT",
+    "family": "ML-TTKarthika",
+    "fileName": "MLKR0NTT.TTF",
+    "sha256": "95c51f33d6c0fdad54e9a0dc05ac10784603b775cf6d00ab450673f915e6b232",
+    "variant": "Normal",
+    "mapVersion": "karthika/1.0.0"
+  }
+]

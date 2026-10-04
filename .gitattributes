@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.png -text
+*.woff2 -text
+# Keep the upstream reference byte-for-byte so its recorded digest is portable.
+data/mozhi/reference/mozhi_malayalam.kmn -text

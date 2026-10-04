@@ -1,0 +1,14 @@
+{
+  "name": "@lipiflow/firebase",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@lipiflow/library": "workspace:*",
+    "firebase": "^12.19.0"
+  },
+  "license": "MIT"
+}

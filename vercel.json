@@ -1,0 +1,6 @@
+{
+  "buildCommand": "pnpm build:hosted",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "outputDirectory": "apps/server/dist",
+  "framework": null
+}

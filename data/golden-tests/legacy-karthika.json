@@ -1,0 +1,132 @@
+[
+  {
+    "input": "മലയാളം",
+    "output": "aebmfw",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "കേരളം",
+    "output": "tIcfw",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "കാണപ്പെടുന്ന",
+    "output": "ImWs¸Sp¶",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "ഉൾപ്പെടുന്ന",
+    "output": "DÄs¸Sp¶",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "ഫ്രൈ",
+    "output": "ss{^",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "സ്ഥലത്തേ",
+    "output": "Øet¯",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "കണ്ടെത്താനാവൂ",
+    "output": "Is­¯m\\mhq",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "ക്രിമിനൽ",
+    "output": "{Inan\\Â",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "പൊടുന്നനെ",
+    "output": "s]mSp¶s\\",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "കിളികൊല്ലൂർ",
+    "output": "InfnsImÃqÀ",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "കോയമ്പത്തൂർ",
+    "output": "tImb¼¯qÀ",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "മുക്കോലയ്ക്കൽ",
+    "output": "apt¡mebv¡Â",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "മക്രോണി",
+    "output": "at{ImWn",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "ക്രോ",
+    "output": "t{Im",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "മനുഷ്യന്",
+    "output": "a\\pjy\\v",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "കേരളത്തിൽ വിരളമായി കാണപ്പെടുന്ന ഒരിനം പൂമ്പാറ്റയാണ് മലബാർ മിന്നൻ (Rapala lankana). ഇന്ത്യയിലെ പശ്ചിമഘട്ടത്തിലെ വളരെ കുറച്ച് സ്ഥലത്തേ അതായത് കേരളം, തമിഴ്നാട്, കർണ്ണാടകം ഉൾപ്പെടുന്ന പ്രദേശങ്ങളിൽ ഇവയെ കണ്ടെത്താനാവൂ.",
+    "output": "tIcf¯nÂ hncfambn ImWs¸Sp¶ Hcn\\w ]q¼mäbmWv ae_mÀ an¶³ (Rapala lankana). C´ybnse ]ÝnaL«¯nse hfsc Ipd¨v Øet¯ AXmbXv tIcfw, Xangv\\mSv, IÀ®mSIw DÄs¸Sp¶ {]tZi§fnÂ Chsb Is­¯m\\mhq.",
+    "source": "https://github.com/aslamplr/unicode-to-mltt-converter/blob/master/tests/convertion.rs"
+  },
+  {
+    "input": "",
+    "output": "",
+    "source": "LipiFlow edge-case specification"
+  },
+  {
+    "input": "ൺൻർൽൾ",
+    "output": "¬³ÀÂÄ",
+    "source": "LipiFlow edge-case specification"
+  },
+  {
+    "input": "ണ്‍ന്‍ര്‍ല്‍ള്‍",
+    "output": "¬³ÀÂÄ",
+    "source": "LipiFlow edge-case specification"
+  },
+  {
+    "input": "ക്‌",
+    "output": "Iv",
+    "source": "LipiFlow edge-case specification"
+  },
+  {
+    "input": "കൊ കോ കൈ കൗ",
+    "output": "sIm tIm ssI Iu",
+    "source": "LipiFlow edge-case specification"
+  },
+  {
+    "input": "കൊ കോ കൌ",
+    "output": "sIm tIm sIu",
+    "source": "LipiFlow edge-case specification"
+  },
+  {
+    "input": "ക‍",
+    "output": "I‍",
+    "source": "LipiFlow edge-case specification"
+  },
+  {
+    "input": "123 😀 中文 café\nhello",
+    "output": "123 😀 中文 café\nhello",
+    "source": "LipiFlow edge-case specification"
+  },
+  {
+    "input": "👩‍👩‍👧‍👦 മലയാളം -",
+    "output": "👩‍👩‍👧‍👦 aebmfw -",
+    "source": "LipiFlow mixed-script preservation specification"
+  },
+  {
+    "input": "മ്ല",
+    "output": "മ്ല",
+    "source": "Font glyph coverage check: U+0178 absent in both supported variants"
+  }
+]

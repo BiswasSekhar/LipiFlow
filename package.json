@@ -1,0 +1,41 @@
+{
+  "name": "lipiflow",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": "24.14.0"
+  },
+  "scripts": {
+    "data:check": "node scripts/compile-mozhi.mjs --check && tsx scripts/validate-catalogue.ts",
+    "wasm:build": "node scripts/build-wasm.mjs",
+    "dev": "pnpm wasm:build && pnpm --filter @lipiflow/web dev",
+    "build": "pnpm data:check && node scripts/prepare-assets.mjs && pnpm wasm:build && pnpm --filter @lipiflow/web build",
+    "preview": "pnpm --filter @lipiflow/web preview",
+    "typecheck": "pnpm --filter @lipiflow/web typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm --filter @lipiflow/web test",
+    "test:e2e": "playwright test",
+    "check": "pnpm format:check && pnpm data:check && pnpm typecheck && pnpm test",
+    "build:hosted": "pnpm data:check && node scripts/prepare-assets.mjs && pnpm wasm:build && node scripts/build-hosted.mjs",
+    "hosted:dev": "pnpm --filter @lipiflow/server dev",
+    "hosted:setup": "pnpm --filter @lipiflow/server migrate:local",
+    "hosted:check": "pnpm --filter @lipiflow/server check && pnpm --filter @lipiflow/admin typecheck",
+    "vercel:check": "pnpm --filter @lipiflow/server exec tsc --noEmit -p ../../api/tsconfig.json",
+    "deploy:cloudflare": "pnpm --filter @lipiflow/server deploy",
+    "test:hosted": "playwright test --config playwright.hosted.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.10.1",
+    "prettier": "3.6.2",
+    "tsx": "4.23.15",
+    "wasm-pack": "0.15.0"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0"
+  },
+  "license": "MIT"
+}

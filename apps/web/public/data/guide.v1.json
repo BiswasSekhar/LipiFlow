@@ -1,0 +1,111 @@
+[
+  { "keys": "a / aa / A", "output": "അ / ആ", "label": "Short and long a", "category": "Vowels" },
+  {
+    "keys": "i / ii / ee / I",
+    "output": "ഇ / ഈ",
+    "label": "Short and long i",
+    "category": "Vowels"
+  },
+  {
+    "keys": "u / uu / oo / U",
+    "output": "ഉ / ഊ",
+    "label": "Short and long u",
+    "category": "Vowels"
+  },
+  {
+    "keys": "e / E / ea / ae",
+    "output": "എ / ഏ",
+    "label": "Short and long e",
+    "category": "Vowels"
+  },
+  { "keys": "o / O / oa", "output": "ഒ / ഓ", "label": "Short and long o", "category": "Vowels" },
+  { "keys": "ai / ei / au / ou", "output": "ഐ / ഔ", "label": "Diphthongs", "category": "Vowels" },
+  {
+    "keys": "ka / kha / ga / gha",
+    "output": "ക / ഖ / ഗ / ഘ",
+    "label": "Velar consonants",
+    "category": "Consonants"
+  },
+  {
+    "keys": "cha / chha / ja / jha",
+    "output": "ച / ഛ / ജ / ഝ",
+    "label": "Palatal consonants",
+    "category": "Consonants"
+  },
+  {
+    "keys": "Ta / Tha / Da / Dha / Na",
+    "output": "ട / ഠ / ഡ / ഢ / ണ",
+    "label": "Retroflex consonants; case matters",
+    "category": "Consonants"
+  },
+  {
+    "keys": "tha / thha / da / dha / na",
+    "output": "ത / ഥ / ദ / ധ / ന",
+    "label": "Dental consonants",
+    "category": "Consonants"
+  },
+  {
+    "keys": "pa / pha / ba / bha / ma",
+    "output": "പ / ഫ / ബ / ഭ / മ",
+    "label": "Labial consonants",
+    "category": "Consonants"
+  },
+  {
+    "keys": "ra / Ra / la / La / zha",
+    "output": "ര / റ / ല / ള / ഴ",
+    "label": "Case distinguishes similar sounds",
+    "category": "Consonants"
+  },
+  {
+    "keys": "sa / Sa / sha / ha",
+    "output": "സ / ശ / ഷ / ഹ",
+    "label": "Sibilants and h",
+    "category": "Consonants"
+  },
+  { "keys": "njaan", "output": "ഞാൻ", "label": "I", "category": "Examples" },
+  { "keys": "namaskaaram", "output": "നമസ്കാരം", "label": "Hello", "category": "Examples" },
+  { "keys": "malayaaLam", "output": "മലയാളം", "label": "Malayalam", "category": "Examples" },
+  {
+    "keys": "amma / nandi",
+    "output": "അമ്മ / നന്ദി",
+    "label": "Conjuncts",
+    "category": "Examples"
+  },
+  {
+    "keys": "avan / avalh / aanh",
+    "output": "അവൻ / അവൾ / ആൺ",
+    "label": "Word-ending chillus",
+    "category": "Chillus"
+  },
+  {
+    "keys": "avan~ / avan`",
+    "output": "അവന്",
+    "label": "Force explicit chandrakkala",
+    "category": "Controls"
+  },
+  {
+    "keys": "pon-vila / pon_vila",
+    "output": "പൊൻവില",
+    "label": "Separate a sequence without a space",
+    "category": "Controls"
+  },
+  {
+    "keys": "a||a",
+    "output": "അ‌അ",
+    "label": "Insert a zero-width non-joiner",
+    "category": "Controls"
+  },
+  {
+    "keys": "\\LipiFlow",
+    "output": "LipiFlow",
+    "label": "Keep a word in English with a backslash",
+    "category": "Controls"
+  },
+  {
+    "keys": "{hello world}",
+    "output": "hello world",
+    "label": "LipiFlow extension: keep a passage literal",
+    "category": "Controls"
+  },
+  { "keys": "1# / 10#", "output": "൧ / ൰", "label": "Malayalam numerals", "category": "Controls" }
+]

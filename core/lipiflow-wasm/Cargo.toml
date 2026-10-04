@@ -1,0 +1,13 @@
+[package]
+name = "lipiflow-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lipiflow-core = { path = "../lipiflow-core" }
+wasm-bindgen = "0.2"
+serde_json.workspace = true

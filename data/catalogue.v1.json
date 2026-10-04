@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "fonts": [
+    {
+      "id": "noto-sans-malayalam",
+      "name": "Noto Sans Malayalam",
+      "encodingFamily": "Unicode",
+      "variant": "Regular",
+      "description": "Clean, everyday lettering for messages, captions and notes.",
+      "cssFamily": "Noto Sans Malayalam",
+      "licence": {
+        "spdx": "OFL-1.1",
+        "notice": "/licenses/noto-sans-malayalam.txt",
+        "redistributable": true
+      },
+      "assets": {
+        "regular": "/fonts/noto-sans-malayalam.woff2",
+        "semibold": "/fonts/noto-sans-malayalam-600.woff2"
+      },
+      "sampleText": "മലയാളം, മനസ്സിൽ നിന്ന്.",
+      "verificationStatus": "verified",
+      "mapVersion": null,
+      "mapAsset": null,
+      "source": "https://github.com/notofonts/malayalam",
+      "packageVersion": "5.3.0"
+    },
+    {
+      "id": "noto-serif-malayalam",
+      "name": "Noto Serif Malayalam",
+      "encodingFamily": "Unicode",
+      "variant": "Regular",
+      "description": "Expressive, traditional lettering for longer passages and titles.",
+      "cssFamily": "Noto Serif Malayalam",
+      "licence": {
+        "spdx": "OFL-1.1",
+        "notice": "/licenses/noto-serif-malayalam.txt",
+        "redistributable": true
+      },
+      "assets": {
+        "regular": "/fonts/noto-serif-malayalam.woff2",
+        "semibold": "/fonts/noto-serif-malayalam-600.woff2"
+      },
+      "sampleText": "മലയാളം, മനസ്സിൽ നിന്ന്.",
+      "verificationStatus": "verified",
+      "mapVersion": null,
+      "mapAsset": null,
+      "source": "https://github.com/notofonts/malayalam",
+      "packageVersion": "5.3.0"
+    }
+  ]
+}

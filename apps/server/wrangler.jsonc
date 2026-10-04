@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lipiflow-font-library",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-03",
+  "vars": {
+    "APP_ORIGIN": "https://replace-with-your-vercel-domain",
+    "APP_ORIGINS": "https://replace-with-your-vercel-domain",
+    "FIREBASE_PROJECT_ID": "replace-with-firebase-project-id",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lipiflow-font-catalogue",
+      "database_id": "c76f007a-d3f5-4c0c-b3f1-41fb3316d0ee",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [{ "binding": "FONT_BUCKET", "bucket_name": "lipiflow-user-fonts" }],
+  "env": {
+    "local": {
+      "vars": {
+        "APP_ORIGIN": "http://127.0.0.1:8787",
+        "APP_ORIGINS": "http://127.0.0.1:8787,http://localhost:8787,http://127.0.0.1:4173,http://127.0.0.1:4174",
+        "FIREBASE_PROJECT_ID": "",
+        "LIPIFLOW_LOCAL": "1",
+        "RATE_SALT": "local-only",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "lipiflow-font-catalogue-local",
+          "database_id": "00000000-0000-0000-0000-000000000001",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "r2_buckets": [{ "binding": "FONT_BUCKET", "bucket_name": "lipiflow-user-fonts-local" }],
+    },
+  },
+}
